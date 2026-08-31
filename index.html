@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GI Joe Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Inter+Tight:wght@500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #0d0f14;
+  --surface:   #13161e;
+  --surface2:  #1a1e2a;
+  --surface3:  #1f2435;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --joe:       #3b82f6;
+  --joe-dim:   rgba(59,130,246,0.15);
+  --joe-text:  #93c5fd;
+  --cobra:     #ef4444;
+  --cobra-dim: rgba(239,68,68,0.15);
+  --cobra-text:#fca5a5;
+  --text:      #e2e8f0;
+  --text2:     #94a3b8;
+  --text3:     #475569;
+  --green:     #22c55e;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+
+/* TOPBAR */
+.topbar{height:58px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100;flex-shrink:0}
+.logo{font-family:'Inter Tight',sans-serif;font-weight:700;font-size:16px;color:var(--text);letter-spacing:-0.3px;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--joe)}
+.search-wrap{flex:1;max-width:380px;position:relative}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
+.search-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 12px 8px 34px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color 0.15s}
+.search-input::placeholder{color:var(--text3)}
+.search-input:focus{border-color:var(--border2)}
+.topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.sync-status{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+.sync-dot.ok{background:var(--green)}
+.sync-dot.err{background:var(--red)}
+.sync-dot.busy{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:7px 14px;border-radius:var(--radius-sm);border:none;cursor:pointer;transition:all 0.15s;white-space:nowrap}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
+.btn-primary{background:var(--joe);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-danger{background:var(--red);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{width:208px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;display:flex;flex-direction:column;gap:4px}
+.sidebar-section{padding:0 10px;margin-bottom:8px}
+.sidebar-heading{font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);padding:0 6px;margin-bottom:4px}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 10px 8px}
+.stat-card .num{font-family:'Inter Tight',sans-serif;font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.stat-card .lbl{font-size:10px;color:var(--text3);margin-top:3px}
+.filter-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:var(--radius-sm);font-size:13px;color:var(--text2);cursor:pointer;transition:all 0.1s;border:1px solid transparent;user-select:none}
+.filter-item:hover{background:var(--surface2);color:var(--text)}
+.filter-item.active{background:var(--surface2);color:var(--text);border-color:var(--border)}
+.filter-item .count{font-size:11px;color:var(--text3)}
+.filter-item.active .count{color:var(--text2)}
+.faction-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:7px;flex-shrink:0}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.toolbar{display:flex;align-items:center;gap:10px}
+.view-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0}
+.view-btn{background:transparent;border:none;color:var(--text3);padding:6px 10px;cursor:pointer;font-size:15px;transition:all 0.1s;display:flex;align-items:center}
+.view-btn.active{background:var(--surface3);color:var(--text)}
+.sort-select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:'Inter',sans-serif;font-size:12px;padding:6px 10px;outline:none;cursor:pointer}
+.sort-select option{background:var(--surface2)}
+.result-count{font-size:12px;color:var(--text3);margin-left:auto}
+
+/* CARD GRID */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.fig-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.15s;display:flex;flex-direction:column}
+.fig-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.card-top-stripe{height:3px;flex-shrink:0}
+.card-top-stripe.joe{background:var(--joe)}
+.card-top-stripe.cobra{background:var(--cobra)}
+.card-img-area{height:120px;display:flex;align-items:center;justify-content:center;background:var(--surface2);position:relative;overflow:hidden;flex-shrink:0}
+.card-img-area img{width:100%;height:100%;object-fit:contain}
+.card-no-img{font-size:11px;color:var(--text3)}
+.card-year-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);color:var(--text2);font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px}
+.card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px}
+.card-name{font-family:'Inter Tight',sans-serif;font-size:14px;font-weight:600;color:var(--text);line-height:1.2}
+.card-specialty{font-size:11px;color:var(--text3)}
+.card-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px}
+.tag-joe{background:var(--joe-dim);color:var(--joe-text)}
+.tag-cobra{background:var(--cobra-dim);color:var(--cobra-text)}
+.tag-sub{background:var(--surface3);color:var(--text2);border:1px solid var(--border)}
+.pips{display:flex;gap:3px;align-items:center}
+.pip{flex:1;height:4px;border-radius:2px;background:var(--surface3)}
+.pip.on-joe{background:var(--joe)}
+.pip.on-cobra{background:var(--cobra)}
+.pip.on-amber{background:var(--amber)}
+.cond-label{font-size:10px;color:var(--text3);white-space:nowrap}
+.card-footer{padding:8px 14px 12px;display:flex;align-items:center;justify-content:space-between}
+.acc-label{font-size:11px;color:var(--text3)}
+.acc-label.complete{color:var(--green)}
+.acc-label.missing{color:var(--amber)}
+.edit-btn{font-size:11px;font-weight:500;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px 9px;cursor:pointer;transition:all 0.1s}
+.edit-btn:hover{color:var(--text);border-color:var(--border2)}
+
+/* LIST VIEW */
+.list-view{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.list-header,.list-row{display:grid;grid-template-columns:10px 1fr 130px 56px 130px 90px 70px;gap:12px;align-items:center;padding:10px 16px}
+.list-header{background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3)}
+.list-row{background:var(--surface);border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;transition:background 0.1s}
+.list-row:last-child{border-bottom:none}
+.list-row:hover{background:var(--surface2)}
+.list-stripe{width:3px;height:28px;border-radius:2px;flex-shrink:0}
+.list-stripe.joe{background:var(--joe)}
+.list-stripe.cobra{background:var(--cobra)}
+.list-name{font-weight:500;color:var(--text)}
+.list-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.list-pips{display:flex;gap:2px}
+.list-pip{width:7px;height:7px;border-radius:50%;background:var(--surface3)}
+.list-pip.on-joe{background:var(--joe)}
+.list-pip.on-cobra{background:var(--cobra)}
+.list-pip.on-amber{background:var(--amber)}
+
+/* EMPTY */
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;text-align:center}
+.empty-icon{font-size:40px;opacity:0.3}
+.empty-title{font-family:'Inter Tight',sans-serif;font-size:18px;font-weight:600;color:var(--text2)}
+.empty-sub{font-size:13px;color:var(--text3);max-width:280px;line-height:1.6}
+
+/* LOADING */
+.loading{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--text3);font-size:13px}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--joe);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MODAL */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,0.6)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:10}
+.modal-title{font-family:'Inter Tight',sans-serif;font-size:18px;font-weight:600;color:var(--text)}
+.modal-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.modal-close{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);width:28px;height:28px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s;flex-shrink:0}
+.modal-close:hover{background:var(--surface3);color:var(--text)}
+.modal-body{padding:20px 24px;display:flex;flex-direction:column;gap:20px}
+.modal-section{font-size:11px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);padding-bottom:10px;border-bottom:1px solid var(--border)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.span2{grid-column:1/-1}
+.form-label{font-size:11px;font-weight:500;color:var(--text2)}
+.form-input,.form-select,.form-textarea{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;outline:none;width:100%;transition:border-color 0.15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--joe)}
+.form-input::placeholder{color:var(--text3)}
+.form-textarea{resize:vertical;min-height:72px}
+.form-select option{background:var(--surface2)}
+.pip-editor{display:flex;flex-direction:column;gap:8px}
+.pip-row{display:flex;gap:4px;align-items:center}
+.pip-edit{flex:1;height:8px;border-radius:4px;background:var(--surface3);cursor:pointer;transition:all 0.1s;border:none}
+.pip-description{font-size:11px;color:var(--text3)}
+.pip-value{font-family:'Inter Tight',sans-serif;font-size:18px;font-weight:700;color:var(--text);min-width:28px;text-align:right}
+.acc-list{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.acc-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--text2);cursor:pointer;transition:all 0.1s;user-select:none}
+.acc-item:hover{border-color:var(--border2)}
+.acc-item.owned{border-color:var(--green);color:var(--text)}
+.acc-item input{accent-color:var(--green);cursor:pointer}
+.img-upload{border:1px dashed var(--border2);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:all 0.15s;position:relative}
+.img-upload:hover{border-color:var(--joe);background:var(--joe-dim)}
+.img-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.img-upload-text{font-size:12px;color:var(--text3);line-height:1.7}
+.img-upload-icon{font-size:22px;margin-bottom:4px;opacity:0.5}
+.img-thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.img-thumb{width:64px;height:64px;border-radius:var(--radius-sm);overflow:hidden;position:relative;border:1px solid var(--border)}
+.img-thumb img{width:100%;height:100%;object-fit:cover}
+.img-thumb-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.img-thumb .uploading-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+.modal-footer .spacer{flex:1}
+
+/* MIGRATE BANNER */
+.migrate-banner{background:var(--surface2);border:1px solid var(--amber);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:13px}
+.migrate-banner-text{flex:1;color:var(--text2);line-height:1.5}
+.migrate-banner-text strong{color:var(--text)}
+
+/* TOASTS */
+.toasts{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--text);animation:toastIn 0.2s ease;display:flex;align-items:center;gap:8px}
+.toast::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.toast.success::before{background:var(--green)}
+.toast.error::before{background:var(--red)}
+.toast.info::before{background:var(--joe)}
+@keyframes toastIn{from{transform:translateX(12px);opacity:0}to{transform:none;opacity:1}}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
+const SB_URL  = 'https://djkmpqxratnahyavfjau.supabase.co';
+const SB_KEY  = 'sb_publishable_padlTyNYJitVOJyKWBCjOQ_iipDxkLj';
+const BUCKET  = 'gijoe-images';
+const LS_KEY  = 'gijoe_v2';
+const ALLOWED_EMAIL = 'matthewhearne@gmail.com';
+const SITE_URL = window.location.href.split('?')[0].split('#')[0];
+
+const sbClient = supabase.createClient(SB_URL, SB_KEY);
+let currentUser = null;
+let currentAccessToken = null;
+
+function isAdmin() { return !!currentUser && currentUser.email === ALLOWED_EMAIL; }
+
+// Core fetch — uses user access token when signed in, anon key otherwise
+async function sbFetch(path, options = {}) {
+  const authToken = currentAccessToken || SB_KEY;
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': `Bearer ${authToken}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...options.headers,
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ── DB HELPERS ────────────────────────────────────────────────────────────────
+// Convert DB row (snake_case, arrays) → app figure (camelCase)
+function fromRow(r) {
+  return {
+    id:               r.id,
+    name:             r.name,
+    codename:         r.codename || '',
+    faction:          r.faction,
+    year:             r.year,
+    specialty:        r.specialty || '',
+    subgroup:         r.subgroup || '',
+    vehicle:          r.vehicle || '',
+    condition:        r.condition,
+    accessories:      r.accessories || [],
+    accessoriesOwned: r.accessories_owned || [],
+    notes:            r.notes || '',
+    acquisitionDate:  r.acquisition_date || '',
+    acquisitionPrice: r.acquisition_price || '',
+    images:           r.images || [],
+    createdAt:        r.created_at,
+    updatedAt:        r.updated_at,
+  };
+}
+
+// Convert app figure → DB row
+function toRow(f) {
+  const row = {
+    name:             f.name,
+    codename:         f.codename || null,
+    faction:          f.faction,
+    year:             f.year || null,
+    specialty:        f.specialty || null,
+    subgroup:         f.subgroup || null,
+    vehicle:          f.vehicle || null,
+    condition:        f.condition || 7,
+    accessories:      f.accessories || [],
+    accessories_owned:f.accessoriesOwned || [],
+    notes:            f.notes || null,
+    acquisition_date: f.acquisitionDate || null,
+    acquisition_price:f.acquisitionPrice ? parseFloat(f.acquisitionPrice) : null,
+    images:           f.images || [],
+  };
+  return row;
+}
+
+async function dbFetch() {
+  const rows = await sbFetch('figures?select=*');
+  return (rows || []).map(fromRow);
+}
+
+async function dbInsert(fig) {
+  const rows = await sbFetch('figures', { method: 'POST', body: JSON.stringify(toRow(fig)) });
+  return fromRow(rows[0]);
+}
+
+async function dbUpdate(id, fig) {
+  const rows = await sbFetch(`figures?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(toRow(fig)) });
+  return fromRow(rows[0]);
+}
+
+async function dbDelete(id) {
+  await sbFetch(`figures?id=eq.${id}`, { method: 'DELETE' });
+}
+
+// ── STORAGE HELPERS ───────────────────────────────────────────────────────────
+async function uploadImage(dataUrl) {
+  // Convert base64 dataUrl → blob
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  const ext = blob.type.split('/')[1] || 'jpg';
+  const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const uploadRes = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, Authorization: `Bearer ${currentAccessToken || SB_KEY}`,
+               'Content-Type': blob.type, 'x-upsert': 'false' },
+    body: blob
+  });
+  if (!uploadRes.ok) throw new Error(await uploadRes.text());
+  return path; // store path, generate signed URL on display
+}
+
+async function getSignedUrl(path) {
+  const res = await fetch(`${SB_URL}/storage/v1/object/sign/${BUCKET}/${path}`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, Authorization: `Bearer ${currentAccessToken || SB_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn: 3600 })
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return `${SB_URL}/storage/v1${data.signedURL}`;
+}
+
+// Cache signed URLs so we don't re-request on every render
+const urlCache = {};
+async function getCachedUrl(path) {
+  if (!path) return null;
+  if (path.startsWith('data:')) return path; // still a local base64 (pre-upload)
+  if (urlCache[path] && urlCache[path].exp > Date.now()) return urlCache[path].url;
+  const url = await getSignedUrl(path);
+  if (url) urlCache[path] = { url, exp: Date.now() + 3500000 };
+  return url;
+}
+
+// ── REFERENCE DATA ────────────────────────────────────────────────────────────
+const COND = {10:'Mint — factory fresh',9:'Near mint',8:'Very fine',7:'Fine',6:'Very good',5:'Good',4:'Fair',3:'Poor',2:'Damaged',1:'Heavy damage'};
+const REFERENCE = [
+  {name:"Snake Eyes",year:1982,faction:"GI Joe",specialty:"Commando",subgroup:"",accessories:["Uzi","Backpack","Grenades"]},
+  {name:"Cobra Commander",year:1982,faction:"Cobra",specialty:"Supreme Commander",subgroup:"Cobra High Command",accessories:["Hood","Pistol"]},
+  {name:"Scarlett",year:1982,faction:"GI Joe",specialty:"Counter Intelligence",subgroup:"",accessories:["Crossbow","Backpack"]},
+  {name:"Breaker",year:1982,faction:"GI Joe",specialty:"Communications",subgroup:"",accessories:["Backpack","Rifle"]},
+  {name:"Stalker",year:1982,faction:"GI Joe",specialty:"Ranger",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Grunt",year:1982,faction:"GI Joe",specialty:"Infantry",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Rock 'n Roll",year:1982,faction:"GI Joe",specialty:"Machine Gunner",subgroup:"",accessories:["Machine Gun","Tripod","Backpack"]},
+  {name:"Flash",year:1982,faction:"GI Joe",specialty:"Laser Rifle Trooper",subgroup:"",accessories:["Laser Rifle","Visor","Backpack"]},
+  {name:"Zap",year:1982,faction:"GI Joe",specialty:"Bazooka Soldier",subgroup:"",accessories:["Bazooka","Backpack"]},
+  {name:"Short-Fuze",year:1982,faction:"GI Joe",specialty:"Mortar Soldier",subgroup:"",accessories:["Mortar","Backpack"]},
+  {name:"Cobra Officer",year:1982,faction:"Cobra",specialty:"Infantry Officer",subgroup:"Cobra Infantry",accessories:["Rifle"]},
+  {name:"Cobra Soldier",year:1982,faction:"Cobra",specialty:"Infantry Trooper",subgroup:"Cobra Infantry",accessories:["Rifle"]},
+  {name:"Duke",year:1983,faction:"GI Joe",specialty:"First Sergeant",subgroup:"",accessories:["Rifle","Backpack","Pistol"]},
+  {name:"Destro",year:1983,faction:"Cobra",specialty:"Weapons Supplier",subgroup:"Cobra High Command",accessories:["Pistol"]},
+  {name:"Gung-Ho",year:1983,faction:"GI Joe",specialty:"Marine",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Torpedo",year:1983,faction:"GI Joe",specialty:"Navy SEAL",subgroup:"Navy",accessories:["Speargun","Flippers","Oxygen Tank"]},
+  {name:"Snow Job",year:1983,faction:"GI Joe",specialty:"Arctic Trooper",subgroup:"Arctic",accessories:["Skis","Poles","Rifle"]},
+  {name:"Doc",year:1983,faction:"GI Joe",specialty:"Medic",subgroup:"",accessories:["Medical Bag","Pistol"]},
+  {name:"Major Bludd",year:1983,faction:"Cobra",specialty:"Mercenary",subgroup:"Cobra High Command",accessories:["Pistol","Backpack"]},
+  {name:"HISS Driver",year:1983,faction:"Cobra",specialty:"Tank Driver",subgroup:"Cobra Armored",accessories:["Pistol"],vehicle:"H.I.S.S. Tank"},
+  {name:"Wild Bill",year:1983,faction:"GI Joe",specialty:"Helicopter Pilot",subgroup:"Air Assault",accessories:["Pistols (x2)","Hat"],vehicle:"Dragonfly XH-1"},
+  {name:"Ace",year:1983,faction:"GI Joe",specialty:"Fighter Pilot",subgroup:"Air Assault",accessories:["Helmet","Pistol"],vehicle:"Skystriker XP-14F"},
+  {name:"Firefly",year:1984,faction:"Cobra",specialty:"Saboteur",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Storm Shadow",year:1984,faction:"Cobra",specialty:"Ninja",subgroup:"",accessories:["Bow","Arrows","Sword","Nunchucks","Backpack"]},
+  {name:"Baroness",year:1984,faction:"Cobra",specialty:"Intelligence Officer",subgroup:"Cobra High Command",accessories:["Rifle","Pistol"]},
+  {name:"Zartan",year:1984,faction:"Cobra",specialty:"Master of Disguise",subgroup:"Dreadnoks",accessories:["Hood","Pistol","Backpack"],vehicle:"Swamp Skier"},
+  {name:"Roadblock",year:1984,faction:"GI Joe",specialty:"Heavy Machine Gunner",subgroup:"",accessories:["M2 Browning","Tripod"]},
+  {name:"Recondo",year:1984,faction:"GI Joe",specialty:"Jungle Trooper",subgroup:"",accessories:["Rifle","Hat","Backpack"]},
+  {name:"Spirit",year:1984,faction:"GI Joe",specialty:"Tracker",subgroup:"",accessories:["Rifle","Eagle (Freedom)"]},
+  {name:"Mutt & Junkyard",year:1984,faction:"GI Joe",specialty:"Dog Handler",subgroup:"",accessories:["Junkyard (Dog)","Muzzle","Rifle"]},
+  {name:"Shipwreck",year:1984,faction:"GI Joe",specialty:"Navy SEAL",subgroup:"Navy",accessories:["Pistol","Parrot (Polly)"]},
+  {name:"Buzzer",year:1984,faction:"Cobra",specialty:"Mercenary Biker",subgroup:"Dreadnoks",accessories:["Chainsaw"]},
+  {name:"Ripper",year:1984,faction:"Cobra",specialty:"Mercenary Biker",subgroup:"Dreadnoks",accessories:["Jaws-of-Life","Pistol"]},
+  {name:"Torch",year:1984,faction:"Cobra",specialty:"Mercenary Biker",subgroup:"Dreadnoks",accessories:["Blowtorch Tool","Pistol"]},
+  {name:"Crimson Guard",year:1984,faction:"Cobra",specialty:"Elite Trooper",subgroup:"Crimson Guard",accessories:["Rifle","Pistol"]},
+  {name:"Scrap-Iron",year:1984,faction:"Cobra",specialty:"Anti-Armor Specialist",subgroup:"",accessories:["Launcher","Missile","Backpack"]},
+  {name:"Flint",year:1985,faction:"GI Joe",specialty:"Warrant Officer",subgroup:"",accessories:["Shotgun","Beret","Backpack"]},
+  {name:"Lady Jaye",year:1985,faction:"GI Joe",specialty:"Covert Operations",subgroup:"",accessories:["Javelin Launcher","Javelins"]},
+  {name:"Quick Kick",year:1985,faction:"GI Joe",specialty:"Silent Weapons",subgroup:"",accessories:[]},
+  {name:"Snake Eyes v2",year:1985,faction:"GI Joe",specialty:"Commando",subgroup:"",accessories:["Uzi","Backpack","Timber (Wolf)"]},
+  {name:"Airtight",year:1985,faction:"GI Joe",specialty:"Hostile Environment",subgroup:"",accessories:["Gas Gun","Backpack","Helmet"]},
+  {name:"Bazooka",year:1985,faction:"GI Joe",specialty:"Missile Specialist",subgroup:"",accessories:["Bazooka","Helmet"]},
+  {name:"Alpine",year:1985,faction:"GI Joe",specialty:"Mountain Trooper",subgroup:"",accessories:["Grappling Hook","Rope","Pistol"]},
+  {name:"Footloose",year:1985,faction:"GI Joe",specialty:"Infantry",subgroup:"",accessories:["Rifle","Backpack","Helmet"]},
+  {name:"Barbecue",year:1985,faction:"GI Joe",specialty:"Fire Fighter",subgroup:"",accessories:["Helmet","Axe","Hose Backpack"]},
+  {name:"Snow Serpent",year:1985,faction:"Cobra",specialty:"Polar Assault Trooper",subgroup:"Cobra Vipers",accessories:["Rifle","Backpack","Skis","Poles"]},
+  {name:"Eel",year:1985,faction:"Cobra",specialty:"Frogman",subgroup:"Cobra Vipers",accessories:["Speargun","Flippers","Oxygen Tank"]},
+  {name:"Tele-Viper",year:1985,faction:"Cobra",specialty:"Communications",subgroup:"Cobra Vipers",accessories:["Rifle","Antenna Backpack"]},
+  {name:"Tomax",year:1985,faction:"Cobra",specialty:"Crimson Guard Commander",subgroup:"Crimson Guard",accessories:["Pistol"]},
+  {name:"Xamot",year:1985,faction:"Cobra",specialty:"Crimson Guard Commander",subgroup:"Crimson Guard",accessories:["Pistol"]},
+  {name:"Viper",year:1986,faction:"Cobra",specialty:"Infantry Trooper",subgroup:"Cobra Vipers",accessories:["Rifle","Backpack","Shield"]},
+  {name:"B.A.T.",year:1986,faction:"Cobra",specialty:"Battle Android Trooper",subgroup:"Cobra Androids",accessories:["Gun Hand","Claw Hand","Flamethrower Hand"]},
+  {name:"Dr. Mindbender",year:1986,faction:"Cobra",specialty:"Master of Mind Control",subgroup:"Cobra High Command",accessories:["Cape","Pistol"]},
+  {name:"Serpentor",year:1986,faction:"Cobra",specialty:"Cobra Emperor",subgroup:"Cobra High Command",accessories:["Air Chariot","Snake Cape","Rifle"],vehicle:"Air Chariot"},
+  {name:"Zarana",year:1986,faction:"Cobra",specialty:"Undercover Agent",subgroup:"Dreadnoks",accessories:["Pistol"]},
+  {name:"Monkeywrench",year:1986,faction:"Cobra",specialty:"Explosives",subgroup:"Dreadnoks",accessories:["Grenade Launcher","Pistol"]},
+  {name:"Wet-Suit",year:1986,faction:"GI Joe",specialty:"Navy SEAL",subgroup:"Navy",accessories:["Rifle","Oxygen Tank","Backpack"]},
+  {name:"Leatherneck",year:1986,faction:"GI Joe",specialty:"Marine Infantry",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Mainframe",year:1986,faction:"GI Joe",specialty:"Computer Specialist",subgroup:"",accessories:["Computer Console","Rifle"]},
+  {name:"Lifeline",year:1986,faction:"GI Joe",specialty:"Rescue Trooper",subgroup:"",accessories:["Medical Backpack","Rifle"]},
+  {name:"Beachhead",year:1986,faction:"GI Joe",specialty:"Ranger",subgroup:"",accessories:["Rifle","Balaclava","Backpack"]},
+  {name:"Sci-Fi",year:1986,faction:"GI Joe",specialty:"Directed Energy Specialist",subgroup:"",accessories:["Laser Rifle","Backpack"]},
+  {name:"Low-Light",year:1986,faction:"GI Joe",specialty:"Night Spotter",subgroup:"",accessories:["Sniper Rifle","Backpack"]},
+  {name:"Dial-Tone",year:1986,faction:"GI Joe",specialty:"Communications",subgroup:"",accessories:["Radio Backpack","Rifle"]},
+  {name:"Tunnel Rat",year:1987,faction:"GI Joe",specialty:"EOD / Tunnels",subgroup:"",accessories:["Rifle","Backpack","Flashlight"]},
+  {name:"Falcon",year:1987,faction:"GI Joe",specialty:"Green Beret",subgroup:"",accessories:["Rifle","Backpack","Beret"]},
+  {name:"Jinx",year:1987,faction:"GI Joe",specialty:"Intelligence",subgroup:"",accessories:["Rifle","Nunchucks"]},
+  {name:"Outback",year:1987,faction:"GI Joe",specialty:"Survivalist",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Chuckles",year:1987,faction:"GI Joe",specialty:"Undercover Agent",subgroup:"",accessories:["Pistol"]},
+  {name:"Law & Order",year:1987,faction:"GI Joe",specialty:"Military Police",subgroup:"",accessories:["Rifle","Order (Dog)"]},
+  {name:"Fast Draw",year:1987,faction:"GI Joe",specialty:"Mobile Missile Specialist",subgroup:"",accessories:["Missiles","Launcher Backpack"]},
+  {name:"Raptor",year:1987,faction:"Cobra",specialty:"Falcon Trainer",subgroup:"",accessories:["Falcon","Rifle"]},
+  {name:"Crystal Ball",year:1987,faction:"Cobra",specialty:"Hypnotist",subgroup:"",accessories:["Shield","Helmet"]},
+  {name:"Techno-Viper",year:1987,faction:"Cobra",specialty:"Battlefield Technician",subgroup:"Cobra Vipers",accessories:["Wrench","Backpack","Rifle"]},
+  {name:"Iron Grenadier",year:1988,faction:"Cobra",specialty:"Elite Infantry",subgroup:"Iron Grenadiers",accessories:["Rifle","Pistol"]},
+  {name:"Voltar",year:1988,faction:"Cobra",specialty:"General",subgroup:"Iron Grenadiers",accessories:["Staff","Bird"]},
+  {name:"Storm Shadow v2",year:1988,faction:"GI Joe",specialty:"Ninja",subgroup:"",accessories:["Bow","Sword","Backpack"]},
+  {name:"Shockwave",year:1988,faction:"GI Joe",specialty:"SWAT",subgroup:"",accessories:["Rifle","Pistol","Backpack"]},
+  {name:"Repeater",year:1988,faction:"GI Joe",specialty:"Steadi-Cam Machine Gunner",subgroup:"",accessories:["Machine Gun Rig","Backpack"]},
+  {name:"Hit & Run",year:1988,faction:"GI Joe",specialty:"Light Infantry",subgroup:"",accessories:["Rifle","Grappling Hook","Backpack"]},
+  {name:"Charbroil",year:1988,faction:"GI Joe",specialty:"Flamethrower",subgroup:"",accessories:["Flamethrower","Hose","Backpack"]},
+  {name:"Blizzard",year:1988,faction:"GI Joe",specialty:"Arctic Attack Soldier",subgroup:"Arctic",accessories:["Rifle","Skis","Backpack"]},
+  {name:"Spearhead & Max",year:1988,faction:"GI Joe",specialty:"Point Man",subgroup:"",accessories:["Rifle","Max (Bobcat)"]},
+  {name:"Tiger Force Duke",year:1988,faction:"GI Joe",specialty:"First Sergeant",subgroup:"Tiger Force",accessories:["Rifle","Backpack"]},
+  {name:"Tiger Force Flint",year:1988,faction:"GI Joe",specialty:"Warrant Officer",subgroup:"Tiger Force",accessories:["Shotgun","Backpack"]},
+  {name:"Tiger Force Roadblock",year:1988,faction:"GI Joe",specialty:"Heavy Machine Gunner",subgroup:"Tiger Force",accessories:["Machine Gun"]},
+  {name:"Night Viper",year:1989,faction:"Cobra",specialty:"Night Fighter",subgroup:"Cobra Vipers",accessories:["Rifle","Helmet","Visor"]},
+  {name:"Alley Viper",year:1989,faction:"Cobra",specialty:"Urban Assault Trooper",subgroup:"Cobra Vipers",accessories:["Shield","Rifle","Backpack"]},
+  {name:"Frag-Viper",year:1989,faction:"Cobra",specialty:"Grenadier",subgroup:"Cobra Vipers",accessories:["Grenade Launcher","Grenades"]},
+  {name:"Gnawgahyde",year:1989,faction:"Cobra",specialty:"Poacher",subgroup:"Dreadnoks",accessories:["Rifle","Porkbelly (Boar)"]},
+  {name:"Snake Eyes v3",year:1989,faction:"GI Joe",specialty:"Commando",subgroup:"",accessories:["Uzi","Sword","Backpack","Timber (Wolf)"]},
+  {name:"Recoil",year:1989,faction:"GI Joe",specialty:"Long Range Recon",subgroup:"",accessories:["Rifle","Backpack"]},
+  {name:"Backblast",year:1989,faction:"GI Joe",specialty:"Anti-Aircraft Soldier",subgroup:"",accessories:["AA Launcher","Missiles"]},
+  {name:"Downtown",year:1989,faction:"GI Joe",specialty:"Mortar Man",subgroup:"",accessories:["Mortar","Backpack"]},
+  {name:"Sgt. Slaughter",year:1989,faction:"GI Joe",specialty:"Drill Instructor",subgroup:"Slaughters Marauders",accessories:["Baton","Hat"]},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let collection = [];
+let loading = true;
+let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
+let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', search = '';
+let sort = 'year', view = 'grid';
+let modal = null, editId = null;
+let toasts = [];
+let F = {};
+let hasMigrateable = false; // local data found in localStorage
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+async function handleSession(user, accessToken) {
+  if (user && user.email !== ALLOWED_EMAIL) {
+    currentUser = null; currentAccessToken = null;
+    await sbClient.auth.signOut();
+    toast('Access restricted — this collection is private.', 'error');
+    return;
+  }
+  currentUser = user || null;
+  currentAccessToken = accessToken || null;
+  render();
+}
+
+async function signIn() {
+  const { error } = await sbClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: SITE_URL }
+  });
+  if (error) toast('Sign in failed: ' + error.message, 'error');
+}
+
+async function signOut() {
+  await sbClient.auth.signOut();
+  currentUser = null; currentAccessToken = null;
+  toast('Signed out', 'info');
+  render();
+}
+
+// Listen for auth state changes (handles redirect back from Google)
+sbClient.auth.onAuthStateChange((_event, session) => {
+  handleSession(session?.user || null, session?.access_token || null);
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function init() {
+  // Check existing session immediately
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (session) { currentUser = session.user; currentAccessToken = session.access_token; }
+
+  // Check for local data to migrate
+  try {
+    const local = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+    if (local.length > 0) hasMigrateable = local;
+  } catch {}
+
+  render();
+  try {
+    collection = await dbFetch();
+    syncStatus = 'ok';
+  } catch (e) {
+    syncStatus = 'err';
+    toast('Could not reach Supabase — check your connection', 'error');
+    console.error(e);
+  }
+  loading = false;
+  render();
+}
+
+// ── MIGRATE LOCAL → SUPABASE ──────────────────────────────────────────────────
+async function migrateLocal() {
+  const local = hasMigrateable;
+  if (!local || !local.length) return;
+  syncStatus = 'busy'; render();
+  let ok = 0, fail = 0;
+  for (const fig of local) {
+    try {
+      // Upload any base64 images first
+      const uploadedPaths = [];
+      for (const img of (fig.images || [])) {
+        if (img.startsWith('data:')) {
+          const path = await uploadImage(img);
+          uploadedPaths.push(path);
+        } else {
+          uploadedPaths.push(img);
+        }
+      }
+      const migrated = { ...fig, images: uploadedPaths };
+      delete migrated.id; // let Supabase generate a new UUID
+      await dbInsert(migrated);
+      ok++;
+    } catch { fail++; }
+  }
+  collection = await dbFetch();
+  syncStatus = 'ok';
+  hasMigrateable = false;
+  localStorage.removeItem(LS_KEY);
+  toast(`Migrated ${ok} figure${ok!==1?'s':''}${fail?` (${fail} failed)`:''}`, ok>0?'success':'error');
+  render();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function genId() { return 'tmp_' + Date.now(); }
+
+function filteredCollection() {
+  return collection.filter(f => {
+    if (filterFaction !== 'all' && f.faction !== filterFaction) return false;
+    if (filterYear !== 'all' && String(f.year) !== filterYear) return false;
+    if (filterSubgroup !== 'all' && f.subgroup !== filterSubgroup) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!f.name.toLowerCase().includes(q) && !(f.specialty||'').toLowerCase().includes(q) && !(f.subgroup||'').toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b) => {
+    if (sort==='year') return (a.year||0)-(b.year||0);
+    if (sort==='name') return a.name.localeCompare(b.name);
+    if (sort==='condition') return (b.condition||5)-(a.condition||5);
+    if (sort==='faction') return a.faction.localeCompare(b.faction);
+    return 0;
+  });
+}
+
+function pipClass(val, faction) {
+  if (val >= 8) return faction==='GI Joe' ? 'on-joe' : 'on-cobra';
+  return 'on-amber';
+}
+
+function accStatus(f) {
+  const total = (f.accessories||[]).length;
+  const owned = (f.accessoriesOwned||[]).length;
+  if (total === 0) return {text:'—', cls:''};
+  if (owned === total) return {text:'Complete', cls:'complete'};
+  return {text:`${owned}/${total}`, cls:'missing'};
+}
+
+// Resolve image paths → displayable URLs (async, patches DOM directly)
+async function resolveCardImages() {
+  const imgs = document.querySelectorAll('[data-img-path]');
+  for (const el of imgs) {
+    const path = el.dataset.imgPath;
+    const url = await getCachedUrl(path);
+    if (url) { el.src = url; el.style.display = ''; }
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  document.getElementById('root').innerHTML = buildApp();
+  bindEvents();
+  // Async resolve images after paint
+  setTimeout(resolveCardImages, 0);
+}
+
+function buildApp() {
+  if (loading) return `
+    <div class="topbar">
+      <div class="logo"><div class="logo-dot"></div>GI Joe Vault</div>
+      <div class="topbar-right"><div class="sync-status"><div class="sync-dot busy"></div>Connecting...</div></div>
+    </div>
+    <div class="loading"><div class="spinner"></div>Loading collection from Supabase...</div>`;
+
+  const items = filteredCollection();
+  const total = collection.length;
+  const joeCount = collection.filter(f=>f.faction==='GI Joe').length;
+  const cobraCount = collection.filter(f=>f.faction==='Cobra').length;
+  const completeCount = collection.filter(f=>{
+    const t=(f.accessories||[]).length, o=(f.accessoriesOwned||[]).length;
+    return t>0 && o===t;
+  }).length;
+
+  const years = ['all', ...Array.from(new Set(collection.map(f=>f.year).filter(Boolean))).sort()];
+  const subgroups = ['all', ...Array.from(new Set(collection.map(f=>f.subgroup).filter(Boolean))).sort()];
+
+  const syncLabel = syncStatus==='ok' ? 'Synced' : syncStatus==='busy' ? 'Syncing...' : 'Offline';
+
+  return `
+  <div class="topbar">
+    <div class="logo"><div class="logo-dot"></div>GI Joe Vault</div>
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" id="search" type="text" placeholder="Search figures, specialties..." value="${search}"/>
+    </div>
+    <div class="topbar-right">
+      <div class="sync-status"><div class="sync-dot ${syncStatus}"></div>${syncLabel}</div>
+      ${isAdmin() ? '<button class="btn btn-primary" id="btn-add">+ Add figure</button>' : ''}
+      <div style="position:relative" id="auth-wrap">
+        ${currentUser
+          ? `<button class="btn btn-ghost" id="auth-btn" style="display:flex;align-items:center;gap:7px">
+               ${currentUser.user_metadata && currentUser.user_metadata.avatar_url ? '<img src="' + currentUser.user_metadata.avatar_url + '" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0"/>' : ''}
+               <span>${(currentUser.user_metadata && currentUser.user_metadata.full_name ? currentUser.user_metadata.full_name : currentUser.email || 'Account').split(' ')[0]}</span>
+             </button>
+             <div id="auth-menu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:6px;min-width:180px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.5)">
+               <div style="font-size:11px;color:var(--text3);padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${currentUser.email}</div>
+               <button id="btn-signout" style="display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;color:var(--text2);font-family:Inter,sans-serif;font-size:13px;padding:8px 10px;border-radius:8px;cursor:pointer">Sign out</button>
+             </div>`
+          : '<button class="btn btn-ghost" id="btn-signin" style="display:flex;align-items:center;gap:8px"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\"><path fill=\"#4285F4\" d=\"M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z\"/><path fill=\"#34A853\" d=\"M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z\"/><path fill=\"#FBBC05\" d=\"M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z\"/><path fill=\"#EA4335\" d=\"M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z\"/></svg>Sign in with Google</button>'
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="stats-row">
+          <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total</div></div>
+          <div class="stat-card"><div class="num">${completeCount}</div><div class="lbl">Complete</div></div>
+          <div class="stat-card" style="border-top:2px solid var(--joe)"><div class="num">${joeCount}</div><div class="lbl">GI Joe</div></div>
+          <div class="stat-card" style="border-top:2px solid var(--cobra)"><div class="num">${cobraCount}</div><div class="lbl">Cobra</div></div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Faction</div>
+        ${[['all','All factions',null],['GI Joe','GI Joe','joe'],['Cobra','Cobra','cobra']].map(([val,label,dot])=>`
+          <div class="filter-item ${filterFaction===val?'active':''}" data-ff="${val}">
+            <span>${dot?`<span class="faction-dot" style="background:var(--${dot})"></span>`:''}${label}</span>
+            <span class="count">${val==='all'?total:collection.filter(f=>f.faction===val).length}</span>
+          </div>`).join('')}
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Year</div>
+        ${years.map(y=>`
+          <div class="filter-item ${filterYear===String(y)?'active':''}" data-fy="${y}">
+            <span>${y==='all'?'All years':y}</span>
+            <span class="count">${y==='all'?total:collection.filter(f=>String(f.year)===String(y)).length}</span>
+          </div>`).join('')}
+      </div>
+      ${subgroups.length>1?`
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Team / Sub-group</div>
+        ${subgroups.map(sg=>`
+          <div class="filter-item ${filterSubgroup===sg?'active':''}" data-fs="${sg}">
+            <span>${sg==='all'?'All teams':sg}</span>
+            <span class="count">${sg==='all'?total:collection.filter(f=>f.subgroup===sg).length}</span>
+          </div>`).join('')}
+      </div>`:''}
+    </aside>
+
+    <div class="content">
+      ${hasMigrateable ? `
+      <div class="migrate-banner">
+        <div class="migrate-banner-text">
+          <strong>${hasMigrateable.length} figures found in local storage</strong> from the previous version of the app. Migrate them to Supabase now?
+        </div>
+        <button class="btn btn-primary" id="btn-migrate">Migrate now</button>
+        <button class="btn btn-ghost" id="btn-migrate-dismiss">Dismiss</button>
+      </div>` : ''}
+
+      <div class="toolbar">
+        <div class="view-toggle">
+          <button class="view-btn ${view==='grid'?'active':''}" id="vg" title="Grid">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </button>
+          <button class="view-btn ${view==='list'?'active':''}" id="vl" title="List">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+        </div>
+        <select class="sort-select" id="sort">
+          <option value="year" ${sort==='year'?'selected':''}>Sort: Year</option>
+          <option value="name" ${sort==='name'?'selected':''}>Sort: Name</option>
+          <option value="condition" ${sort==='condition'?'selected':''}>Sort: Condition</option>
+          <option value="faction" ${sort==='faction'?'selected':''}>Sort: Faction</option>
+        </select>
+        <div class="result-count">${items.length} figure${items.length!==1?'s':''}</div>
+      </div>
+
+      ${items.length===0 ? buildEmpty() : view==='grid' ? buildGrid(items) : buildList(items)}
+    </div>
+  </div>
+
+  ${modal ? buildModal() : ''}
+  <div class="toasts">${toasts.map(t=>`<div class="toast ${t.type}">${t.msg}</div>`).join('')}</div>`;
+}
+
+function buildEmpty() {
+  if (collection.length===0) return `
+    <div class="empty">
+      <div class="empty-icon">🪖</div>
+      <div class="empty-title">No figures yet</div>
+      <div class="empty-sub">Start logging your collection.</div>
+      <button class="btn btn-primary" id="btn-add2" style="margin-top:8px">+ Add figure</button>
+    </div>`;
+  return `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">No matches</div><div class="empty-sub">No figures match the current filters.</div></div>`;
+}
+
+function buildGrid(items) {
+  return `<div class="card-grid">${items.map(f => {
+    const fc = f.faction==='GI Joe'?'joe':'cobra';
+    const cond = f.condition||5;
+    const acc = accStatus(f);
+    const firstImg = f.images && f.images[0];
+    return `
+    <div class="fig-card" data-id="${f.id}">
+      <div class="card-top-stripe ${fc}"></div>
+      <div class="card-img-area">
+        ${firstImg
+          ? `<img data-img-path="${firstImg}" src="" alt="${f.name}" style="display:none"/>`
+          : `<span class="card-no-img">No image</span>`}
+        ${f.year?`<div class="card-year-badge">${f.year}</div>`:''}
+      </div>
+      <div class="card-body">
+        <div><div class="card-name">${f.name}</div>${f.specialty?`<div class="card-specialty">${f.specialty}</div>`:''}</div>
+        <div class="card-tags">
+          <span class="tag tag-${fc}">${f.faction}</span>
+          ${f.subgroup?`<span class="tag tag-sub">${f.subgroup}</span>`:''}
+        </div>
+        <div class="pips">
+          ${Array.from({length:10},(_,i)=>`<div class="pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}
+          <span class="cond-label" style="margin-left:6px">${cond}/10</span>
+        </div>
+      </div>
+      <div class="card-footer">
+        <span class="acc-label ${acc.cls}">${acc.text}</span>
+        <button class="edit-btn" data-edit="${f.id}">Edit</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function buildList(items) {
+  return `
+  <div class="list-view">
+    <div class="list-header"><div></div><div>Figure</div><div>Specialty</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>
+    ${items.map(f=>{
+      const fc=f.faction==='GI Joe'?'joe':'cobra';
+      const cond=f.condition||5;
+      const acc=accStatus(f);
+      return `
+      <div class="list-row" data-id="${f.id}">
+        <div class="list-stripe ${fc}"></div>
+        <div><div class="list-name">${f.name}</div><div class="list-sub">${f.subgroup||f.faction}</div></div>
+        <div style="color:var(--text2);font-size:13px">${f.specialty||'—'}</div>
+        <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
+        <div>
+          <div class="list-pips">${Array.from({length:10},(_,i)=>`<div class="list-pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}</div>
+          <div class="list-sub">${COND[cond]||''}</div>
+        </div>
+        <div class="acc-label ${acc.cls}" style="font-size:12px">${acc.text}</div>
+        <div><button class="edit-btn" data-edit="${f.id}">Edit</button></div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function buildModal() {
+  const isEdit = modal==='edit';
+  const cond = F.condition||7;
+  const fc = (F.faction||'GI Joe')==='GI Joe';
+  return `
+  <div class="backdrop" id="backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">${isEdit?'Edit figure':'Add figure'}</div>
+          <div class="modal-sub">${isEdit?'Changes save directly to Supabase':'Saved directly to Supabase'}</div>
+        </div>
+        <button class="modal-close" id="mc">✕</button>
+      </div>
+      <div class="modal-body">
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Load from reference</div>
+          <select class="form-select" id="ref">
+            <option value="">— Select a known figure to pre-fill —</option>
+            ${REFERENCE.map(r=>`<option value="${r.name}" ${F._refName===r.name?'selected':''}>${r.year} · ${r.faction} · ${r.name}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Identity</div>
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="f-name" value="${F.name||''}" placeholder="e.g. Snake Eyes"/></div>
+            <div class="form-group"><label class="form-label">Version / codename</label><input class="form-input" id="f-codename" value="${F.codename||''}" placeholder="e.g. v1, Battle-mask"/></div>
+            <div class="form-group"><label class="form-label">Faction *</label>
+              <select class="form-select" id="f-faction">
+                <option value="GI Joe" ${fc?'selected':''}>GI Joe</option>
+                <option value="Cobra" ${!fc?'selected':''}>Cobra</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="f-year" type="number" min="1982" max="1994" value="${F.year||''}"/></div>
+            <div class="form-group"><label class="form-label">Specialty</label><input class="form-input" id="f-specialty" value="${F.specialty||''}" placeholder="e.g. Commando"/></div>
+            <div class="form-group"><label class="form-label">Sub-group / team</label><input class="form-input" id="f-subgroup" value="${F.subgroup||''}" placeholder="e.g. Tiger Force"/></div>
+            <div class="form-group span2"><label class="form-label">Vehicle / playset</label><input class="form-input" id="f-vehicle" value="${F.vehicle||''}" placeholder="e.g. Skystriker XP-14F"/></div>
+          </div>
+        </div>
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Condition</div>
+          <div class="pip-editor">
+            <div class="pip-row">
+              ${Array.from({length:10},(_,i)=>{
+                const n=i+1, on=n<=cond;
+                return `<button class="pip-edit" data-cond="${n}" style="${on?`background:${fc?'var(--joe)':'var(--cobra)'}`:''}"></button>`;
+              }).join('')}
+              <div class="pip-value">${cond}</div>
+            </div>
+            <div class="pip-description">${COND[cond]||''}</div>
+          </div>
+        </div>
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Accessories</div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Known accessories (comma-separated)</label>
+            <input class="form-input" id="f-acc-input" value="${(F.accessories||[]).join(', ')}" placeholder="e.g. Uzi, Backpack, Grenades"/>
+          </div>
+          ${(F.accessories||[]).length>0?`
+          <div class="form-group">
+            <label class="form-label">Which do you have?</label>
+            <div class="acc-list">
+              ${(F.accessories||[]).map(a=>{
+                const owned=(F.accessoriesOwned||[]).includes(a);
+                return `<label class="acc-item ${owned?'owned':''}"><input type="checkbox" data-acc="${a}" ${owned?'checked':''}/>${a}</label>`;
+              }).join('')}
+            </div>
+          </div>`:''}
+        </div>
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Acquisition</div>
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">Date acquired</label><input class="form-input" id="f-date" type="date" value="${F.acquisitionDate||''}"/></div>
+            <div class="form-group"><label class="form-label">Price paid (£)</label><input class="form-input" id="f-price" type="number" min="0" step="0.01" value="${F.acquisitionPrice||''}"/></div>
+          </div>
+        </div>
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Photos</div>
+          <div class="img-upload">
+            <input type="file" id="f-img" accept="image/*" multiple/>
+            <div class="img-upload-icon">📷</div>
+            <div class="img-upload-text">Click to upload photos<br/><span style="font-size:11px;color:var(--text3)">Stored in Supabase Storage</span></div>
+          </div>
+          ${(F.images||[]).length>0?`
+          <div class="img-thumbs">
+            ${(F.images||[]).map((src,i)=>`
+              <div class="img-thumb">
+                ${src.startsWith('data:')?`<img src="${src}"/>`:`<img data-img-path="${src}" src="" style="display:none"/>`}
+                <button class="img-thumb-del" data-di="${i}">✕</button>
+              </div>`).join('')}
+          </div>`:''}
+        </div>
+        <div>
+          <div class="modal-section" style="margin-bottom:12px">Notes</div>
+          <textarea class="form-textarea" id="f-notes" placeholder="O-ring condition, paint wear, provenance, variant details...">${F.notes||''}</textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        ${isEdit?`<button class="btn btn-danger" id="btn-del">Delete</button>`:''}
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="btn-cancel">Cancel</button>
+        <button class="btn btn-primary" id="btn-save">Save figure</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── EVENTS ────────────────────────────────────────────────────────────────────
+function bindEvents() {
+  q('search')?.addEventListener('input', e=>{search=e.target.value;render();});
+  q('btn-add')?.addEventListener('click', openAdd);
+  q('btn-add2')?.addEventListener('click', openAdd);
+  q('vg')?.addEventListener('click', ()=>{view='grid';render();});
+  q('vl')?.addEventListener('click', ()=>{view='list';render();});
+  q('sort')?.addEventListener('change', e=>{sort=e.target.value;render();});
+  q('btn-migrate')?.addEventListener('click', migrateLocal);
+  q('btn-migrate-dismiss')?.addEventListener('click', ()=>{hasMigrateable=false;render();});
+
+  // Auth
+  document.getElementById('btn-signin')?.addEventListener('click', signIn);
+  document.getElementById('btn-signout')?.addEventListener('click', signOut);
+  document.getElementById('auth-btn')?.addEventListener('click', () => {
+    const menu = document.getElementById('auth-menu');
+    if (menu) menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('auth-wrap');
+    const menu = document.getElementById('auth-menu');
+    if (wrap && menu && !wrap.contains(e.target)) menu.style.display = 'none';
+  }, { once: false });
+
+  document.querySelectorAll('[data-ff]').forEach(el=>el.addEventListener('click',()=>{filterFaction=el.dataset.ff;render();}));
+  document.querySelectorAll('[data-fy]').forEach(el=>el.addEventListener('click',()=>{filterYear=el.dataset.fy;render();}));
+  document.querySelectorAll('[data-fs]').forEach(el=>el.addEventListener('click',()=>{filterSubgroup=el.dataset.fs;render();}));
+
+  document.querySelectorAll('.fig-card[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
+  document.querySelectorAll('.list-row[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
+  document.querySelectorAll('[data-edit]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openEdit(el.dataset.edit);}));
+
+  if (modal) {
+    q('mc')?.addEventListener('click', closeModal);
+    q('btn-cancel')?.addEventListener('click', closeModal);
+    q('backdrop')?.addEventListener('click', e=>{if(e.target.id==='backdrop')closeModal();});
+    q('btn-save')?.addEventListener('click', saveFig);
+    q('btn-del')?.addEventListener('click', delFig);
+
+    q('ref')?.addEventListener('change', e=>{
+      const r=REFERENCE.find(x=>x.name===e.target.value);
+      if(!r)return;
+      F={...F,name:r.name,faction:r.faction,year:r.year,specialty:r.specialty||'',subgroup:r.subgroup||'',vehicle:r.vehicle||'',accessories:[...(r.accessories||[])],accessoriesOwned:[],_refName:r.name};
+      render();
+    });
+
+    document.querySelectorAll('[data-cond]').forEach(btn=>btn.addEventListener('click',()=>{F.condition=parseInt(btn.dataset.cond);render();}));
+
+    q('f-acc-input')?.addEventListener('blur', e=>{
+      const newList=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+      F.accessories=newList;
+      F.accessoriesOwned=(F.accessoriesOwned||[]).filter(a=>newList.includes(a));
+      render();
+    });
+
+    document.querySelectorAll('[data-acc]').forEach(cb=>cb.addEventListener('change',()=>{
+      const a=cb.dataset.acc;
+      F.accessoriesOwned=F.accessoriesOwned||[];
+      if(cb.checked){if(!F.accessoriesOwned.includes(a))F.accessoriesOwned.push(a);}
+      else{F.accessoriesOwned=F.accessoriesOwned.filter(x=>x!==a);}
+    }));
+
+    q('f-img')?.addEventListener('change', e=>{
+      Array.from(e.target.files).forEach(file=>{
+        const r=new FileReader();
+        r.onload=ev=>{F.images=[...(F.images||[]),ev.target.result];render();};
+        r.readAsDataURL(file);
+      });
+    });
+
+    document.querySelectorAll('[data-di]').forEach(btn=>btn.addEventListener('click',e=>{
+      e.stopPropagation();F.images.splice(parseInt(btn.dataset.di),1);render();
+    }));
+
+    // Resolve modal thumbnail images
+    setTimeout(resolveCardImages, 0);
+  }
+}
+
+function q(id){return document.getElementById(id);}
+
+function readForm() {
+  return {
+    name:             q('f-name')?.value.trim()||F.name||'',
+    codename:         q('f-codename')?.value.trim()||'',
+    faction:          q('f-faction')?.value||'GI Joe',
+    year:             parseInt(q('f-year')?.value)||null,
+    specialty:        q('f-specialty')?.value.trim()||'',
+    subgroup:         q('f-subgroup')?.value.trim()||'',
+    vehicle:          q('f-vehicle')?.value.trim()||'',
+    condition:        F.condition||7,
+    accessories:      (q('f-acc-input')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
+    accessoriesOwned: F.accessoriesOwned||[],
+    acquisitionDate:  q('f-date')?.value||'',
+    acquisitionPrice: q('f-price')?.value||'',
+    notes:            q('f-notes')?.value||'',
+    images:           F.images||[],
+  };
+}
+
+function openAdd(){F={condition:7,accessories:[],accessoriesOwned:[],images:[],faction:'GI Joe'};modal='add';editId=null;render();}
+function openEdit(id){
+  const fig=collection.find(f=>f.id===id);
+  if(!fig)return;
+  F={...fig,accessories:[...(fig.accessories||[])],accessoriesOwned:[...(fig.accessoriesOwned||[])],images:[...(fig.images||[])]};
+  modal='edit';editId=id;render();
+}
+function closeModal(){modal=null;editId=null;render();}
+
+async function saveFig() {
+  if (!isAdmin()) { toast('Sign in to save changes', 'error'); return; }
+  const data = readForm();
+  if (!data.name){toast('Name is required','error');return;}
+
+  // Upload any new base64 images → storage paths
+  syncStatus='busy'; render();
+  try {
+    const resolvedImages = [];
+    for (const img of data.images) {
+      if (img.startsWith('data:')) {
+        const path = await uploadImage(img);
+        resolvedImages.push(path);
+      } else {
+        resolvedImages.push(img);
+      }
+    }
+    data.images = resolvedImages;
+
+    if (modal==='add') {
+      const saved = await dbInsert(data);
+      collection.push(saved);
+      toast(`${data.name} added`,'success');
+    } else {
+      const saved = await dbUpdate(editId, data);
+      const i = collection.findIndex(f=>f.id===editId);
+      if (i>-1) collection[i] = saved;
+      toast(`${data.name} updated`,'success');
+    }
+    syncStatus='ok';
+  } catch(e) {
+    syncStatus='err';
+    toast('Save failed — check connection','error');
+    console.error(e);
+  }
+  closeModal();
+}
+
+async function delFig() {
+  if (!isAdmin()) { toast('Sign in to make changes', 'error'); return; }
+  if (!confirm('Remove this figure from your collection?')) return;
+  const fig = collection.find(f=>f.id===editId);
+  syncStatus='busy'; render();
+  try {
+    await dbDelete(editId);
+    collection = collection.filter(f=>f.id!==editId);
+    syncStatus='ok';
+    toast(`${fig?.name||'Figure'} removed`,'error');
+  } catch(e) {
+    syncStatus='err';
+    toast('Delete failed','error');
+    console.error(e);
+  }
+  closeModal();
+}
+
+function toast(msg,type='info'){
+  const t={msg,type,id:Date.now()};
+  toasts.push(t);
+  render();
+  setTimeout(()=>{toasts=toasts.filter(x=>x.id!==t.id);render();},3500);
+}
+
+init();
+</script>
+</body>
+</html>
