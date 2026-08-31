@@ -579,7 +579,7 @@ function pipClass(val, faction) {
 function accStatus(f) {
   const total = (f.accessories||[]).length;
   const owned = (f.accessoriesOwned||[]).length;
-  if (total === 0) return {text:'—', cls:''};
+  if (total === 0) return {text:'Complete', cls:'complete'};
   if (owned === total) return {text:'Complete', cls:'complete'};
   return {text:`${owned}/${total}`, cls:'missing'};
 }
@@ -616,7 +616,7 @@ function buildApp() {
   const cobraCount = collection.filter(f=>f.faction==='Cobra').length;
   const completeCount = collection.filter(f=>{
     const t=(f.accessories||[]).length, o=(f.accessoriesOwned||[]).length;
-    return t>0 && o===t;
+    return t===0 || o===t;
   }).length;
 
   const years = ['all', ...Array.from(new Set(collection.map(f=>f.year).filter(Boolean))).sort()];
