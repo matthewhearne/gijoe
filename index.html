@@ -89,6 +89,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .result-count{font-size:12px;color:var(--text3);margin-left:auto}
 
 /* CARD GRID */
+.year-divider{display:flex;align-items:center;gap:10px}
+.year-divider-label{font-family:'Inter Tight',sans-serif;font-size:14px;font-weight:700;color:var(--text);letter-spacing:0.2px;white-space:nowrap}
+.year-divider-count{font-size:11px;color:var(--text3);white-space:nowrap}
+.year-divider-line{flex:1;height:1px;background:var(--border)}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .fig-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.15s;display:flex;flex-direction:column}
 .fig-card:hover{border-color:var(--border2);transform:translateY(-1px)}
@@ -138,6 +142,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .list-pip.on-cobra{background:var(--cobra)}
 .list-pip.on-amber{background:var(--amber)}
 .list-missing{font-size:10px;color:var(--amber);margin-top:2px;line-height:1.4}
+.list-year-divider{padding:7px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:8px}
+.list-year-divider:first-of-type{border-top:none}
+.list-year-label{font-family:'Inter Tight',sans-serif;font-size:12px;font-weight:700;color:var(--text2);letter-spacing:0.3px}
+.list-year-count{font-size:11px;color:var(--text3)}
 .note-flag{display:inline-flex;vertical-align:middle;margin-left:6px;color:var(--text3);cursor:help}
 .list-row:hover .note-flag{color:var(--joe-text)}
 
@@ -458,7 +466,7 @@ let collection = [];
 let loading = true;
 let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
 let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterSpecialty = 'all', filterVehicle = false, search = '';
-let sort = 'year', view = 'grid';
+let sort = 'year', view = 'list';
 let modal = null, editId = null;
 let toasts = [];
 let F = {};
@@ -802,13 +810,12 @@ function buildEmpty() {
   return `<div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">No matches</div><div class="empty-sub">No figures match the current filters.</div></div>`;
 }
 
-function buildGrid(items) {
-  return `<div class="card-grid">${items.map(f => {
-    const fc = f.faction==='GI Joe'?'joe':'cobra';
-    const cond = f.condition||5;
-    const acc = accStatus(f);
-    const firstImg = f.images && f.images[0];
-    return `
+function figCardHtml(f) {
+  const fc = f.faction==='GI Joe'?'joe':'cobra';
+  const cond = f.condition||5;
+  const acc = accStatus(f);
+  const firstImg = f.images && f.images[0];
+  return `
     <div class="fig-card" data-id="${f.id}">
       <div class="card-top-stripe ${fc}"></div>
       <div class="card-img-area">
@@ -834,20 +841,36 @@ function buildGrid(items) {
         <button class="edit-btn" data-edit="${f.id}">Edit</button>
       </div>
     </div>`;
-  }).join('')}</div>`;
 }
 
-function buildList(items) {
+// Groups figures into consecutive runs sharing the same year (in whatever order
+// `items` is already sorted in) so the grid can break onto a fresh row per year
+// with a header denoting the year change, rather than one continuous grid.
+function buildGrid(items) {
+  if (!items.length) return '';
+  const groups = [];
+  items.forEach(f => {
+    const last = groups[groups.length-1];
+    if (last && last.year === f.year) last.items.push(f);
+    else groups.push({ year: f.year, items: [f] });
+  });
+  return groups.map(g => `
+    <div class="year-divider">
+      <span class="year-divider-label">${g.year || 'Year unknown'}</span>
+      <span class="year-divider-count">${g.items.length} figure${g.items.length!==1?'s':''}</span>
+      <span class="year-divider-line"></span>
+    </div>
+    <div class="card-grid">${g.items.map(figCardHtml).join('')}</div>`
+  ).join('');
+}
+
+function listRowHtml(f) {
+  const fc=f.faction==='GI Joe'?'joe':'cobra';
+  const cond=f.condition||5;
+  const acc=accStatus(f);
+  const subLabel=[f.subgroup, f.vehicle?`🚗 ${f.vehicle}`:''].filter(Boolean).join(' · ') || f.faction;
+  const noteTip = f.notes ? escAttr(f.notes) : '';
   return `
-  <div class="list-view">
-    <div class="list-header"><div></div><div>Figure</div><div>Specialty</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>
-    ${items.map(f=>{
-      const fc=f.faction==='GI Joe'?'joe':'cobra';
-      const cond=f.condition||5;
-      const acc=accStatus(f);
-      const subLabel=[f.subgroup, f.vehicle?`🚗 ${f.vehicle}`:''].filter(Boolean).join(' · ') || f.faction;
-      const noteTip = f.notes ? escAttr(f.notes) : '';
-      return `
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
         <div><div class="list-name">${f.name}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
@@ -863,7 +886,27 @@ function buildList(items) {
         </div>
         <div><button class="edit-btn" data-edit="${f.id}">Edit</button></div>
       </div>`;
-    }).join('')}
+}
+
+// Groups figures into consecutive runs sharing the same year (in whatever order
+// `items` is already sorted in) so a divider row can mark each year change,
+// the same way the grid view breaks onto a fresh row per year.
+function buildList(items) {
+  const groups = [];
+  items.forEach(f => {
+    const last = groups[groups.length-1];
+    if (last && last.year === f.year) last.items.push(f);
+    else groups.push({ year: f.year, items: [f] });
+  });
+  return `
+  <div class="list-view">
+    <div class="list-header"><div></div><div>Figure</div><div>Specialty</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>
+    ${groups.map(g => `
+    <div class="list-year-divider">
+      <span class="list-year-label">${g.year || 'Year unknown'}</span>
+      <span class="list-year-count">${g.items.length} figure${g.items.length!==1?'s':''}</span>
+    </div>
+    ${g.items.map(listRowHtml).join('')}`).join('')}
   </div>`;
 }
 
