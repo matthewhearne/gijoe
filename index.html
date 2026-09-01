@@ -621,12 +621,25 @@ function escAttr(str) {
 
 // Resolve image paths → displayable URLs (async, patches DOM directly)
 async function resolveCardImages() {
+  // Each image is resolved independently (in parallel, each wrapped in its own
+  // try/catch) rather than one at a time in a shared loop. Previously a single
+  // failed sign request (a transient network hiccup, a slow/cold response,
+  // anything that made that one fetch reject) threw out of the whole loop and
+  // silently left every image AFTER it in the DOM stuck blank — with nothing
+  // to retry them until some unrelated state change happened to trigger
+  // another full render(). A lone quiet retry is also given to each image
+  // before giving up, so a one-off blip resolves itself on the same pass.
   const imgs = document.querySelectorAll('[data-img-path]');
-  for (const el of imgs) {
+  await Promise.all(Array.from(imgs).map(async el => {
     const path = el.dataset.imgPath;
-    const url = await getCachedUrl(path);
-    if (url) { el.src = url; el.style.display = ''; }
-  }
+    try {
+      let url = await getCachedUrl(path);
+      if (!url) url = await getCachedUrl(path); // one retry
+      if (url) { el.src = url; el.style.display = ''; }
+    } catch (e) {
+      console.error('Could not resolve image', path, e);
+    }
+  }));
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
