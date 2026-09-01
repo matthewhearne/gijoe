@@ -138,6 +138,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .list-pip.on-cobra{background:var(--cobra)}
 .list-pip.on-amber{background:var(--amber)}
 .list-missing{font-size:10px;color:var(--amber);margin-top:2px;line-height:1.4}
+.note-flag{display:inline-flex;vertical-align:middle;margin-left:6px;color:var(--text3);cursor:help}
+.list-row:hover .note-flag{color:var(--joe-text)}
 
 /* EMPTY */
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;text-align:center}
@@ -848,7 +850,7 @@ function buildList(items) {
       return `
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
-        <div><div class="list-name">${f.name}</div><div class="list-sub">${subLabel}</div></div>
+        <div><div class="list-name">${f.name}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
         <div style="color:var(--text2);font-size:13px">${f.specialty||'—'}</div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
