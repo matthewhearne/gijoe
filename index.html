@@ -340,9 +340,16 @@ async function uploadImage(dataUrl) {
 }
 
 async function getSignedUrl(path) {
+  // Always sign with the anon key, never the signed-in user's own access token.
+  // Viewing images is a public, read-only action (proven to work fine for
+  // signed-out visitors), and swapping in the admin's personal token here was
+  // actually breaking it: this project's storage bucket policy grants read
+  // access to the "anon" role specifically, not "authenticated", so a signed-in
+  // request carrying the admin's own token was being rejected while an
+  // anonymous one succeeded — the opposite of what you'd expect.
   const res = await fetch(`${SB_URL}/storage/v1/object/sign/${BUCKET}/${path}`, {
     method: 'POST',
-    headers: { 'apikey': SB_KEY, Authorization: `Bearer ${currentAccessToken || SB_KEY}`, 'Content-Type': 'application/json' },
+    headers: { 'apikey': SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ expiresIn: 3600 })
   });
   if (!res.ok) return null;
