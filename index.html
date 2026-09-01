@@ -1192,12 +1192,17 @@ async function saveFig() {
       toast(`${data.name} updated`,'success');
     }
     syncStatus='ok';
+    closeModal();
   } catch(e) {
+    // Keep the modal open on failure — closing it here used to silently discard
+    // everything the user had typed/uploaded (including new photos) even though
+    // nothing had actually reached Supabase, making a failed save look successful.
     syncStatus='err';
-    toast('Save failed — check connection','error');
+    const detail = (e && e.message) ? e.message : 'Unknown error';
+    toast(`Save failed — nothing was saved. ${detail}`, 'error', 8000);
     console.error(e);
+    render();
   }
-  closeModal();
 }
 
 async function delFig() {
@@ -1210,19 +1215,21 @@ async function delFig() {
     collection = collection.filter(f=>f.id!==editId);
     syncStatus='ok';
     toast(`${fig?.name||'Figure'} removed`,'error');
+    closeModal();
   } catch(e) {
     syncStatus='err';
-    toast('Delete failed','error');
+    const detail = (e && e.message) ? e.message : 'Unknown error';
+    toast(`Delete failed — ${detail}`,'error', 8000);
     console.error(e);
+    render();
   }
-  closeModal();
 }
 
-function toast(msg,type='info'){
-  const t={msg,type,id:Date.now()};
+function toast(msg,type='info',duration){
+  const t={msg,type,id:Date.now()+Math.random()};
   toasts.push(t);
   render();
-  setTimeout(()=>{toasts=toasts.filter(x=>x.id!==t.id);render();},3500);
+  setTimeout(()=>{toasts=toasts.filter(x=>x.id!==t.id);render();},duration||3500);
 }
 
 init();
