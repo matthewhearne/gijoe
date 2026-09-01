@@ -103,6 +103,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .card-img-area img{width:100%;height:100%;object-fit:contain}
 .card-no-img{font-size:11px;color:var(--text3)}
 .card-year-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.55);color:var(--text2);font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px}
+.card-photo-count{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,0.55);color:var(--text2);font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;display:flex;align-items:center;gap:3px}
+.img-expand-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.25);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity 0.15s,background 0.15s}
+.card-img-area:hover .img-expand-btn{opacity:1}
+.img-expand-btn:hover{background:rgba(0,0,0,0.8)}
 .card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px}
 .card-name{font-family:'Inter Tight',sans-serif;font-size:14px;font-weight:600;color:var(--text);line-height:1.2}
 .card-specialty{font-size:11px;color:var(--text3)}
@@ -148,6 +152,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .list-year-count{font-size:11px;color:var(--text3)}
 .note-flag{display:inline-flex;vertical-align:middle;margin-left:6px;color:var(--text3);cursor:help}
 .list-row:hover .note-flag{color:var(--joe-text)}
+.photo-flag{display:inline-flex;align-items:center;gap:2px;vertical-align:middle;margin-left:6px;color:var(--text3);cursor:pointer}
+.photo-flag:hover{color:var(--joe-text)}
+.photo-flag-count{font-size:10px;font-weight:600}
 
 /* EMPTY */
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;text-align:center}
@@ -201,6 +208,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .img-thumb .uploading-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center}
 .modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
 .modal-footer .spacer{flex:1}
+
+/* LIGHTBOX */
+.lightbox-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:400;display:flex;align-items:center;justify-content:center;padding:24px}
+.lightbox{max-width:min(900px,92vw);max-height:92vh;display:flex;flex-direction:column;gap:12px}
+.lightbox-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lightbox-title{font-family:'Inter Tight',sans-serif;font-size:15px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:10px}
+.lightbox-count{font-size:12px;font-weight:500;color:var(--text3)}
+.lightbox-body{display:flex;align-items:center;gap:10px;min-height:0}
+.lightbox-img-wrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:200px;max-height:75vh;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.lightbox-img{max-width:100%;max-height:75vh;object-fit:contain;display:block}
+.lightbox-nav{flex-shrink:0;width:40px;height:40px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.1s}
+.lightbox-nav:hover{background:var(--surface3);border-color:var(--joe)}
+.lightbox-thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.lightbox-thumb{flex-shrink:0;width:54px;height:54px;border-radius:var(--radius-sm);overflow:hidden;border:2px solid transparent;background:var(--surface2);cursor:pointer;padding:0;transition:border-color 0.1s}
+.lightbox-thumb:hover{border-color:var(--border2)}
+.lightbox-thumb.active{border-color:var(--joe)}
+.lightbox-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 
 /* MIGRATE BANNER */
 .migrate-banner{background:var(--surface2);border:1px solid var(--amber);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:12px;font-size:13px}
@@ -475,6 +499,7 @@ let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
 let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterSpecialty = 'all', filterVehicle = false, search = '';
 let sort = 'year', view = 'list';
 let modal = null, editId = null;
+let lightbox = null; // { figureId, index } — larger-image viewer, independent of the edit modal
 let toasts = [];
 let F = {};
 let hasMigrateable = false; // local data found in localStorage
@@ -816,6 +841,7 @@ function buildApp() {
   </div>
 
   ${modal ? buildModal() : ''}
+  ${lightbox ? buildLightbox() : ''}
   <div class="toasts">${toasts.map(t=>`<div class="toast ${t.type}">${t.msg}</div>`).join('')}</div>`;
 }
 
@@ -840,9 +866,13 @@ function figCardHtml(f) {
       <div class="card-top-stripe ${fc}"></div>
       <div class="card-img-area">
         ${firstImg
-          ? `<img data-img-path="${firstImg}" src="" alt="${f.name}" style="display:none"/>`
+          ? `<img data-img-path="${firstImg}" src="" alt="${f.name}" style="display:none"/>
+             <button class="img-expand-btn" data-view="${f.id}" title="View larger">
+               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+             </button>`
           : `<span class="card-no-img">No image</span>`}
         ${f.year?`<div class="card-year-badge">${f.year}</div>`:''}
+        ${f.images && f.images.length>1?`<div class="card-photo-count">📷 ${f.images.length}</div>`:''}
       </div>
       <div class="card-body">
         <div><div class="card-name">${f.name}</div>${f.specialty?`<div class="card-specialty">${f.specialty}</div>`:''}</div>
@@ -890,10 +920,12 @@ function listRowHtml(f) {
   const acc=accStatus(f);
   const subLabel=[f.subgroup, f.vehicle?`🚗 ${f.vehicle}`:''].filter(Boolean).join(' · ') || f.faction;
   const noteTip = f.notes ? escAttr(f.notes) : '';
+  const photoCount = (f.images||[]).length;
+  const photoTip = photoCount ? `View ${photoCount} photo${photoCount!==1?'s':''}` : '';
   return `
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
-        <div><div class="list-name">${f.name}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
+        <div><div class="list-name">${f.name}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
         <div style="color:var(--text2);font-size:13px">${f.specialty||'—'}</div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
@@ -1052,6 +1084,38 @@ function buildModal() {
   </div>`;
 }
 
+// Larger-image viewer, independent of the add/edit modal. Reuses the same
+// data-img-path + resolveCardImages() mechanism the cards use, so it doesn't
+// need its own URL-resolving logic — it just drops another [data-img-path]
+// element into the DOM and the existing resolver picks it up after paint.
+function buildLightbox() {
+  const fig = collection.find(f=>f.id===lightbox.figureId);
+  const imgs = fig ? (fig.images||[]) : [];
+  if (!fig || !imgs.length) return '';
+  const idx = Math.min(Math.max(lightbox.index,0), imgs.length-1);
+  const path = imgs[idx];
+  return `
+  <div class="lightbox-backdrop" id="lightbox-backdrop">
+    <div class="lightbox">
+      <div class="lightbox-header">
+        <div class="lightbox-title">${fig.name}${imgs.length>1?`<span class="lightbox-count">${idx+1} / ${imgs.length}</span>`:''}</div>
+        <button class="modal-close" id="lightbox-close">✕</button>
+      </div>
+      <div class="lightbox-body">
+        ${imgs.length>1?`<button class="lightbox-nav" id="lightbox-prev" aria-label="Previous photo">‹</button>`:''}
+        <div class="lightbox-img-wrap">
+          <img class="lightbox-img" data-img-path="${path}" src="" alt="${fig.name}" style="display:none"/>
+        </div>
+        ${imgs.length>1?`<button class="lightbox-nav" id="lightbox-next" aria-label="Next photo">›</button>`:''}
+      </div>
+      ${imgs.length>1?`<div class="lightbox-thumbs">${imgs.map((p,i)=>`
+        <button class="lightbox-thumb ${i===idx?'active':''}" data-thumb-idx="${i}">
+          <img data-img-path="${p}" src="" style="display:none"/>
+        </button>`).join('')}</div>`:''}
+    </div>
+  </div>`;
+}
+
 // ── EVENTS ────────────────────────────────────────────────────────────────────
 function bindEvents() {
   q('search')?.addEventListener('input', e=>{search=e.target.value;render();});
@@ -1087,6 +1151,15 @@ function bindEvents() {
   document.querySelectorAll('.fig-card[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
   document.querySelectorAll('.list-row[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
   document.querySelectorAll('[data-edit]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openEdit(el.dataset.edit);}));
+  document.querySelectorAll('[data-view]').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();openLightbox(el.dataset.view,0);}));
+
+  if (lightbox) {
+    q('lightbox-close')?.addEventListener('click', closeLightbox);
+    q('lightbox-backdrop')?.addEventListener('click', e=>{if(e.target.id==='lightbox-backdrop')closeLightbox();});
+    q('lightbox-prev')?.addEventListener('click', ()=>lightboxStep(-1));
+    q('lightbox-next')?.addEventListener('click', ()=>lightboxStep(1));
+    document.querySelectorAll('[data-thumb-idx]').forEach(btn=>btn.addEventListener('click', ()=>{lightbox={...lightbox, index:parseInt(btn.dataset.thumbIdx)};render();}));
+  }
 
   if (modal) {
     q('mc')?.addEventListener('click', closeModal);
@@ -1182,6 +1255,17 @@ function openEdit(id){
 }
 function closeModal(){modal=null;editId=null;render();}
 
+function openLightbox(figureId, index){ lightbox={figureId, index:index||0}; render(); }
+function closeLightbox(){ lightbox=null; render(); }
+function lightboxStep(delta){
+  if (!lightbox) return;
+  const fig = collection.find(f=>f.id===lightbox.figureId);
+  const n = fig ? (fig.images||[]).length : 0;
+  if (!n) return;
+  lightbox = { ...lightbox, index: (lightbox.index + delta + n) % n };
+  render();
+}
+
 async function saveFig() {
   if (!isAdmin()) { toast('Sign in to save changes', 'error'); return; }
   const data = readForm();
@@ -1251,6 +1335,16 @@ function toast(msg,type='info',duration){
   render();
   setTimeout(()=>{toasts=toasts.filter(x=>x.id!==t.id);render();},duration||3500);
 }
+
+// Registered once (not inside bindEvents/render, which run on every state
+// change) so keyboard navigation for the lightbox doesn't fire once per
+// past render — it just checks the current `lightbox` state each press.
+document.addEventListener('keydown', e => {
+  if (!lightbox) return;
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowRight') lightboxStep(1);
+  else if (e.key === 'ArrowLeft') lightboxStep(-1);
+});
 
 init();
 </script>
