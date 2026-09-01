@@ -39,9 +39,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .logo-dot{width:8px;height:8px;border-radius:50%;background:var(--joe)}
 .search-wrap{flex:1;max-width:380px;position:relative}
 .search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);pointer-events:none}
-.search-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 12px 8px 34px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color 0.15s}
+.search-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:8px 30px 8px 34px;font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color 0.15s}
 .search-input::placeholder{color:var(--text3)}
 .search-input:focus{border-color:var(--border2)}
+.search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:4px 6px;line-height:1;border-radius:5px;transition:all 0.1s}
+.search-clear:hover{color:var(--text);background:var(--surface3)}
 .topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
 .sync-status{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px}
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
@@ -120,7 +122,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* LIST VIEW */
 .list-view{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.list-header,.list-row{display:grid;grid-template-columns:10px 1fr 130px 56px 130px 90px 70px;gap:12px;align-items:center;padding:10px 16px}
+.list-header,.list-row{display:grid;grid-template-columns:10px 1fr 130px 56px 130px 170px 70px;gap:12px;align-items:center;padding:10px 16px}
 .list-header{background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3)}
 .list-row{background:var(--surface);border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;transition:background 0.1s}
 .list-row:last-child{border-bottom:none}
@@ -135,6 +137,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .list-pip.on-joe{background:var(--joe)}
 .list-pip.on-cobra{background:var(--cobra)}
 .list-pip.on-amber{background:var(--amber)}
+.list-missing{font-size:10px;color:var(--amber);margin-top:2px;line-height:1.4}
 
 /* EMPTY */
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:80px 20px;text-align:center}
@@ -452,7 +455,7 @@ const REFERENCE = [
 let collection = [];
 let loading = true;
 let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
-let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', search = '';
+let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterSpecialty = 'all', filterVehicle = false, search = '';
 let sort = 'year', view = 'grid';
 let modal = null, editId = null;
 let toasts = [];
@@ -557,6 +560,8 @@ function filteredCollection() {
     if (filterFaction !== 'all' && f.faction !== filterFaction) return false;
     if (filterYear !== 'all' && String(f.year) !== filterYear) return false;
     if (filterSubgroup !== 'all' && f.subgroup !== filterSubgroup) return false;
+    if (filterSpecialty !== 'all' && f.specialty !== filterSpecialty) return false;
+    if (filterVehicle && !f.vehicle) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!f.name.toLowerCase().includes(q) && !(f.specialty||'').toLowerCase().includes(q) && !(f.subgroup||'').toLowerCase().includes(q)) return false;
@@ -577,11 +582,31 @@ function pipClass(val, faction) {
 }
 
 function accStatus(f) {
-  const total = (f.accessories||[]).length;
-  const owned = (f.accessoriesOwned||[]).length;
-  if (total === 0) return {text:'Complete', cls:'complete'};
-  if (owned === total) return {text:'Complete', cls:'complete'};
-  return {text:`${owned}/${total}`, cls:'missing'};
+  const list = f.accessories||[];
+  const owned = f.accessoriesOwned||[];
+  const missing = list.filter(a=>!owned.includes(a));
+  if (list.length === 0 || missing.length === 0) return {text:'Complete', cls:'complete', missing:[]};
+  return {text:`${owned.length}/${list.length}`, cls:'missing', missing};
+}
+
+// Unique specialty / sub-group values seen so far (own collection first, reference
+// data too) — used to power the autocomplete suggestions in the add/edit form.
+function knownSpecialties() {
+  const set = new Set();
+  collection.forEach(f => { if (f.specialty) set.add(f.specialty); });
+  REFERENCE.forEach(r => { if (r.specialty) set.add(r.specialty); });
+  return Array.from(set).sort();
+}
+function knownSubgroups() {
+  const set = new Set();
+  collection.forEach(f => { if (f.subgroup) set.add(f.subgroup); });
+  REFERENCE.forEach(r => { if (r.subgroup) set.add(r.subgroup); });
+  return Array.from(set).sort();
+}
+
+// Escape a string for safe use inside an HTML attribute (e.g. title="...").
+function escAttr(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // Resolve image paths → displayable URLs (async, patches DOM directly)
@@ -596,8 +621,29 @@ async function resolveCardImages() {
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
 function render() {
+  // Every render() rebuilds the whole app from a string, which normally kicks
+  // focus out of whatever input the user was typing in. Snapshot focus + cursor
+  // position first and restore it after, so e.g. typing in the search box or
+  // the add/edit form doesn't get interrupted after a single character.
+  const activeEl = document.activeElement;
+  const activeId = activeEl && activeEl.id ? activeEl.id : null;
+  const canSelect = activeEl && typeof activeEl.selectionStart === 'number';
+  const selStart = canSelect ? activeEl.selectionStart : null;
+  const selEnd   = canSelect ? activeEl.selectionEnd   : null;
+
   document.getElementById('root').innerHTML = buildApp();
   bindEvents();
+
+  if (activeId) {
+    const el = document.getElementById(activeId);
+    if (el) {
+      el.focus();
+      if (selStart !== null && typeof el.setSelectionRange === 'function') {
+        try { el.setSelectionRange(selStart, selEnd); } catch (e) {}
+      }
+    }
+  }
+
   // Async resolve images after paint
   setTimeout(resolveCardImages, 0);
 }
@@ -621,6 +667,8 @@ function buildApp() {
 
   const years = ['all', ...Array.from(new Set(collection.map(f=>f.year).filter(Boolean))).sort()];
   const subgroups = ['all', ...Array.from(new Set(collection.map(f=>f.subgroup).filter(Boolean))).sort()];
+  const specialties = ['all', ...Array.from(new Set(collection.map(f=>f.specialty).filter(Boolean))).sort()];
+  const vehicleCount = collection.filter(f=>f.vehicle).length;
 
   const syncLabel = syncStatus==='ok' ? 'Synced' : syncStatus==='busy' ? 'Syncing...' : 'Offline';
 
@@ -630,6 +678,7 @@ function buildApp() {
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input class="search-input" id="search" type="text" placeholder="Search figures, specialties..." value="${search}"/>
+      ${search ? `<button class="search-clear" id="search-clear" title="Clear search">✕</button>` : ''}
     </div>
     <div class="topbar-right">
       <div class="sync-status"><div class="sync-dot ${syncStatus}"></div>${syncLabel}</div>
@@ -684,6 +733,23 @@ function buildApp() {
             <span>${sg==='all'?'All teams':sg}</span>
             <span class="count">${sg==='all'?total:collection.filter(f=>f.subgroup===sg).length}</span>
           </div>`).join('')}
+      </div>`:''}
+      ${specialties.length>1?`
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Specialty</div>
+        ${specialties.map(sp=>`
+          <div class="filter-item ${filterSpecialty===sp?'active':''}" data-fsp="${sp}">
+            <span>${sp==='all'?'All specialties':sp}</span>
+            <span class="count">${sp==='all'?total:collection.filter(f=>f.specialty===sp).length}</span>
+          </div>`).join('')}
+      </div>`:''}
+      ${vehicleCount>0?`
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Vehicles</div>
+        <div class="filter-item ${filterVehicle?'active':''}" data-fveh="1">
+          <span>Vehicle drivers</span>
+          <span class="count">${vehicleCount}</span>
+        </div>
       </div>`:''}
     </aside>
 
@@ -754,6 +820,7 @@ function buildGrid(items) {
         <div class="card-tags">
           <span class="tag tag-${fc}">${f.faction}</span>
           ${f.subgroup?`<span class="tag tag-sub">${f.subgroup}</span>`:''}
+          ${f.vehicle?`<span class="tag tag-sub">🚗 ${f.vehicle}</span>`:''}
         </div>
         <div class="pips">
           ${Array.from({length:10},(_,i)=>`<div class="pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}
@@ -776,17 +843,22 @@ function buildList(items) {
       const fc=f.faction==='GI Joe'?'joe':'cobra';
       const cond=f.condition||5;
       const acc=accStatus(f);
+      const subLabel=[f.subgroup, f.vehicle?`🚗 ${f.vehicle}`:''].filter(Boolean).join(' · ') || f.faction;
+      const noteTip = f.notes ? escAttr(f.notes) : '';
       return `
-      <div class="list-row" data-id="${f.id}">
+      <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
-        <div><div class="list-name">${f.name}</div><div class="list-sub">${f.subgroup||f.faction}</div></div>
+        <div><div class="list-name">${f.name}</div><div class="list-sub">${subLabel}</div></div>
         <div style="color:var(--text2);font-size:13px">${f.specialty||'—'}</div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
           <div class="list-pips">${Array.from({length:10},(_,i)=>`<div class="list-pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}</div>
           <div class="list-sub">${COND[cond]||''}</div>
         </div>
-        <div class="acc-label ${acc.cls}" style="font-size:12px">${acc.text}</div>
+        <div>
+          <div class="acc-label ${acc.cls}" style="font-size:12px">${acc.text}</div>
+          ${acc.missing && acc.missing.length ? `<div class="list-missing">Missing: ${acc.missing.join(', ')}</div>` : ''}
+        </div>
         <div><button class="edit-btn" data-edit="${f.id}">Edit</button></div>
       </div>`;
     }).join('')}
@@ -826,9 +898,24 @@ function buildModal() {
                 <option value="Cobra" ${!fc?'selected':''}>Cobra</option>
               </select>
             </div>
-            <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="f-year" type="number" min="1982" max="1994" value="${F.year||''}"/></div>
-            <div class="form-group"><label class="form-label">Specialty</label><input class="form-input" id="f-specialty" value="${F.specialty||''}" placeholder="e.g. Commando"/></div>
-            <div class="form-group"><label class="form-label">Sub-group / team</label><input class="form-input" id="f-subgroup" value="${F.subgroup||''}" placeholder="e.g. Tiger Force"/></div>
+            <div class="form-group"><label class="form-label">Year</label>
+              <select class="form-select" id="f-year">
+                <option value="">—</option>
+                ${(() => {
+                  const yrs = Array.from({length:8},(_,i)=>1982+i);
+                  if (F.year && !yrs.includes(Number(F.year))) yrs.push(Number(F.year)); // preserve an out-of-range year already on the figure
+                  return yrs.sort((a,b)=>a-b).map(y=>`<option value="${y}" ${String(F.year)===String(y)?'selected':''}>${y}</option>`).join('');
+                })()}
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Specialty</label>
+              <input class="form-input" id="f-specialty" list="specialty-list" value="${F.specialty||''}" placeholder="e.g. Commando"/>
+              <datalist id="specialty-list">${knownSpecialties().map(s=>`<option value="${s.replace(/"/g,'&quot;')}"></option>`).join('')}</datalist>
+            </div>
+            <div class="form-group"><label class="form-label">Sub-group / team</label>
+              <input class="form-input" id="f-subgroup" list="subgroup-list" value="${F.subgroup||''}" placeholder="e.g. Tiger Force"/>
+              <datalist id="subgroup-list">${knownSubgroups().map(s=>`<option value="${s.replace(/"/g,'&quot;')}"></option>`).join('')}</datalist>
+            </div>
             <div class="form-group span2"><label class="form-label">Vehicle / playset</label><input class="form-input" id="f-vehicle" value="${F.vehicle||''}" placeholder="e.g. Skystriker XP-14F"/></div>
           </div>
         </div>
@@ -903,6 +990,8 @@ function buildModal() {
 // ── EVENTS ────────────────────────────────────────────────────────────────────
 function bindEvents() {
   q('search')?.addEventListener('input', e=>{search=e.target.value;render();});
+  q('search')?.addEventListener('keydown', e=>{if(e.key==='Escape'&&search){search='';render();}});
+  q('search-clear')?.addEventListener('click', ()=>{search='';render();q('search')?.focus();});
   q('btn-add')?.addEventListener('click', openAdd);
   q('btn-add2')?.addEventListener('click', openAdd);
   q('vg')?.addEventListener('click', ()=>{view='grid';render();});
@@ -927,6 +1016,8 @@ function bindEvents() {
   document.querySelectorAll('[data-ff]').forEach(el=>el.addEventListener('click',()=>{filterFaction=el.dataset.ff;render();}));
   document.querySelectorAll('[data-fy]').forEach(el=>el.addEventListener('click',()=>{filterYear=el.dataset.fy;render();}));
   document.querySelectorAll('[data-fs]').forEach(el=>el.addEventListener('click',()=>{filterSubgroup=el.dataset.fs;render();}));
+  document.querySelectorAll('[data-fsp]').forEach(el=>el.addEventListener('click',()=>{filterSpecialty=el.dataset.fsp;render();}));
+  document.querySelectorAll('[data-fveh]').forEach(el=>el.addEventListener('click',()=>{filterVehicle=!filterVehicle;render();}));
 
   document.querySelectorAll('.fig-card[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
   document.querySelectorAll('.list-row[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
@@ -944,6 +1035,23 @@ function bindEvents() {
       if(!r)return;
       F={...F,name:r.name,faction:r.faction,year:r.year,specialty:r.specialty||'',subgroup:r.subgroup||'',vehicle:r.vehicle||'',accessories:[...(r.accessories||[])],accessoriesOwned:[],_refName:r.name};
       render();
+    });
+
+    // Keep F in sync as the user types/selects, so an intermediate render()
+    // (e.g. clicking a condition pip) never wipes out unsaved field values —
+    // buildModal() always renders inputs from F, so F has to stay current.
+    q('f-name')?.addEventListener('input', e=>{F.name=e.target.value;});
+    q('f-codename')?.addEventListener('input', e=>{F.codename=e.target.value;});
+    q('f-faction')?.addEventListener('change', e=>{F.faction=e.target.value;render();});
+    q('f-year')?.addEventListener('change', e=>{F.year=e.target.value?parseInt(e.target.value):null;});
+    q('f-specialty')?.addEventListener('input', e=>{F.specialty=e.target.value;});
+    q('f-subgroup')?.addEventListener('input', e=>{F.subgroup=e.target.value;});
+    q('f-vehicle')?.addEventListener('input', e=>{F.vehicle=e.target.value;});
+    q('f-date')?.addEventListener('input', e=>{F.acquisitionDate=e.target.value;});
+    q('f-price')?.addEventListener('input', e=>{F.acquisitionPrice=e.target.value;});
+    q('f-notes')?.addEventListener('input', e=>{F.notes=e.target.value;});
+    q('f-acc-input')?.addEventListener('input', e=>{
+      F.accessories=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
     });
 
     document.querySelectorAll('[data-cond]').forEach(btn=>btn.addEventListener('click',()=>{F.condition=parseInt(btn.dataset.cond);render();}));
