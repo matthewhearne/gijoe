@@ -115,7 +115,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .tag-cobra{background:var(--cobra-dim);color:var(--cobra-text)}
 .tag-sub{background:var(--surface3);color:var(--text2);border:1px solid var(--border)}
 .tag-wanted{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.35)}
-.tag-oob{background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.35)}
+.tag-ignore{background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.35)}
 .pips{display:flex;gap:3px;align-items:center}
 .pip{flex:1;height:4px;border-radius:2px;background:var(--surface3)}
 .pip.on-joe{background:var(--joe)}
@@ -283,6 +283,16 @@ async function sbFetch(path, options = {}) {
 }
 
 // ── DB HELPERS ────────────────────────────────────────────────────────────────
+// Canonicalizes a raw status string into one of 'owned' | 'wanted' | 'ignore'.
+// Accepts the older 'out_of_budget'/'oob' spelling so rows saved before the
+// status was renamed to "Ignore" still read correctly without a DB migration.
+function canonicalStatus(s) {
+  const v = String(s||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
+  if (v === 'wanted' || v === 'want') return 'wanted';
+  if (v === 'ignore' || v === 'out_of_budget' || v === 'oob' || v === 'skip') return 'ignore';
+  return 'owned';
+}
+
 // Convert DB row (snake_case, arrays) → app figure (camelCase)
 function fromRow(r) {
   return {
@@ -291,7 +301,7 @@ function fromRow(r) {
     codename:         r.codename || '',
     faction:          r.faction,
     year:             r.year,
-    status:           r.status || 'owned',
+    status:           canonicalStatus(r.status),
     subgroup:         r.subgroup || '',
     vehicle:          r.vehicle || '',
     condition:        r.condition,
@@ -313,7 +323,7 @@ function toRow(f) {
     codename:         f.codename || null,
     faction:          f.faction,
     year:             f.year || null,
-    status:           f.status || 'owned',
+    status:           canonicalStatus(f.status),
     subgroup:         f.subgroup || null,
     vehicle:          f.vehicle || null,
     condition:        f.condition || 7,
@@ -414,7 +424,7 @@ let collection = [];
 let loading = true;
 let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
 let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterVehicle = false, search = '';
-let filterStatus = 'owned'; // 'all' | 'owned' | 'wanted' | 'out_of_budget' — defaults to just what you own
+let filterStatus = 'owned'; // 'all' | 'owned' | 'wanted' | 'ignore' — defaults to just what you own
 let sort = 'year', view = 'list';
 let modal = null, editId = null;
 let lightbox = null; // { figureId, index } — larger-image viewer, independent of the edit modal
@@ -626,7 +636,7 @@ function buildApp() {
   const total = collection.length;
   const ownedCount = collection.filter(f=>(f.status||'owned')==='owned').length;
   const wantedCount = collection.filter(f=>(f.status||'owned')==='wanted').length;
-  const oobCount = collection.filter(f=>(f.status||'owned')==='out_of_budget').length;
+  const ignoreCount = collection.filter(f=>(f.status||'owned')==='ignore').length;
   const completeCount = collection.filter(f=>{
     if ((f.status||'owned')!=='owned') return false;
     const t=(f.accessories||[]).length, o=(f.accessoriesOwned||[]).length;
@@ -682,12 +692,12 @@ function buildApp() {
           <div class="stat-card"><div class="num">${ownedCount}</div><div class="lbl">Owned</div></div>
           <div class="stat-card"><div class="num">${completeCount}</div><div class="lbl">Complete</div></div>
           <div class="stat-card"><div class="num">${wantedCount}</div><div class="lbl">Wanted</div></div>
-          <div class="stat-card"><div class="num">${oobCount}</div><div class="lbl">Out of budget</div></div>
+          <div class="stat-card"><div class="num">${ignoreCount}</div><div class="lbl">Ignore</div></div>
         </div>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">Status</div>
-        ${[['all','All statuses'],['owned','Owned'],['wanted','Wanted'],['out_of_budget','Out of budget']].map(([val,label])=>`
+        ${[['all','All statuses'],['owned','Owned'],['wanted','Wanted'],['ignore','Ignore']].map(([val,label])=>`
           <div class="filter-item ${filterStatus===val?'active':''}" data-fst="${val}">
             <span>${label}</span>
             <span class="count">${val==='all'?total:collection.filter(f=>(f.status||'owned')===val).length}</span>
@@ -781,6 +791,9 @@ function figCardHtml(f) {
   const cond = f.condition||5;
   const acc = accStatus(f);
   const firstImg = f.images && f.images[0];
+  // Condition and accessory-completeness only make sense for figures you
+  // actually own — hide them for "Wanted" and "Ignore" figures.
+  const hideCond = f.status==='wanted' || f.status==='ignore';
   return `
     <div class="fig-card" data-id="${f.id}">
       <div class="card-top-stripe ${fc}"></div>
@@ -799,17 +812,18 @@ function figCardHtml(f) {
         <div class="card-tags">
           <span class="tag tag-${fc}">${f.faction}</span>
           ${f.status==='wanted'?`<span class="tag tag-wanted">Wanted</span>`:''}
-          ${f.status==='out_of_budget'?`<span class="tag tag-oob">Out of budget</span>`:''}
+          ${f.status==='ignore'?`<span class="tag tag-ignore">Ignore</span>`:''}
           ${f.subgroup?`<span class="tag tag-sub">${f.subgroup}</span>`:''}
           ${f.vehicle?`<span class="tag tag-sub">🚗 ${f.vehicle}</span>`:''}
         </div>
+        ${!hideCond ? `
         <div class="pips">
           ${Array.from({length:10},(_,i)=>`<div class="pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}
           <span class="cond-label" style="margin-left:6px">${cond}/10</span>
-        </div>
+        </div>` : ''}
       </div>
       <div class="card-footer">
-        <span class="acc-label ${acc.cls}">${acc.text}</span>
+        ${!hideCond ? `<span class="acc-label ${acc.cls}">${acc.text}</span>` : '<span></span>'}
         <button class="edit-btn" data-edit="${f.id}">Edit</button>
       </div>
     </div>`;
@@ -844,18 +858,23 @@ function listRowHtml(f) {
   const noteTip = f.notes ? escAttr(f.notes) : '';
   const photoCount = (f.images||[]).length;
   const photoTip = photoCount ? `View ${photoCount} photo${photoCount!==1?'s':''}` : '';
+  // Condition and accessory-completeness only make sense for figures you
+  // actually own — hide them for "Wanted" and "Ignore" figures.
+  const hideCond = f.status==='wanted' || f.status==='ignore';
   return `
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
-        <div><div class="list-name">${f.name}${f.status==='wanted'?`<span class="tag tag-wanted" style="margin-left:7px;vertical-align:middle">Wanted</span>`:''}${f.status==='out_of_budget'?`<span class="tag tag-oob" style="margin-left:7px;vertical-align:middle">Out of budget</span>`:''}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
+        <div><div class="list-name">${f.name}${f.status==='wanted'?`<span class="tag tag-wanted" style="margin-left:7px;vertical-align:middle">Wanted</span>`:''}${f.status==='ignore'?`<span class="tag tag-ignore" style="margin-left:7px;vertical-align:middle">Ignore</span>`:''}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
+          ${!hideCond ? `
           <div class="list-pips">${Array.from({length:10},(_,i)=>`<div class="list-pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}</div>
-          <div class="list-sub">${COND[cond]||''}</div>
+          <div class="list-sub">${COND[cond]||''}</div>` : ''}
         </div>
         <div>
+          ${!hideCond ? `
           <div class="acc-label ${acc.cls}" style="font-size:12px">${acc.text}</div>
-          ${acc.missing && acc.missing.length ? `<div class="list-missing">Missing: ${acc.missing.join(', ')}</div>` : ''}
+          ${acc.missing && acc.missing.length ? `<div class="list-missing">Missing: ${acc.missing.join(', ')}</div>` : ''}` : ''}
         </div>
         <div><button class="edit-btn" data-edit="${f.id}">Edit</button></div>
       </div>`;
@@ -913,7 +932,7 @@ function buildModal() {
               <select class="form-select" id="f-status">
                 <option value="owned" ${(F.status||'owned')==='owned'?'selected':''}>Owned</option>
                 <option value="wanted" ${F.status==='wanted'?'selected':''}>Wanted</option>
-                <option value="out_of_budget" ${F.status==='out_of_budget'?'selected':''}>Out of budget</option>
+                <option value="ignore" ${F.status==='ignore'?'selected':''}>Ignore</option>
               </select>
             </div>
             <div class="form-group"><label class="form-label">Year</label>
@@ -1312,12 +1331,10 @@ function parseCsvText(text) {
   return rows.filter(r => !(r.length === 1 && String(r[0]).trim() === ''));
 }
 
-function normalizeStatus(s) {
-  const v = String(s||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
-  if (v === 'wanted' || v === 'want') return 'wanted';
-  if (v === 'out_of_budget' || v === 'oob') return 'out_of_budget';
-  return 'owned';
-}
+// CSV status parsing shares the same canonicalization used when reading
+// rows back from the DB, so "ignore", "out of budget", "oob" and "skip" are
+// all accepted spellings for the same status in an uploaded CSV.
+function normalizeStatus(s) { return canonicalStatus(s); }
 
 function normalizeFaction(s) {
   return String(s||'').trim().toLowerCase() === 'cobra' ? 'Cobra' : 'GI Joe';
