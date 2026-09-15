@@ -538,10 +538,31 @@ function filteredCollection() {
     }
     return true;
   }).sort((a,b) => {
-    if (sort==='year') return (a.year||0)-(b.year||0);
-    if (sort==='name') return a.name.localeCompare(b.name);
-    if (sort==='condition') return (b.condition||5)-(a.condition||5);
-    if (sort==='faction') return a.faction.localeCompare(b.faction);
+    // Every sort mode breaks ties in a fixed order so figures sharing a
+    // year/condition/faction still land in a stable, predictable position
+    // instead of whatever order they came back from the DB:
+    //   Year       -> year, then faction, then name
+    //   Name       -> faction, then name (grouped by faction first)
+    //   Condition  -> condition, then name
+    //   Faction    -> faction, then name
+    const byFaction = a.faction.localeCompare(b.faction);
+    const byName = a.name.localeCompare(b.name);
+    if (sort==='year') return ((a.year||0)-(b.year||0)) || byFaction || byName;
+    if (sort==='name') return byFaction || byName;
+    if (sort==='condition') {
+      // Condition is only meaningful for figures you actually own — a
+      // "Wanted"/"Ignore" figure has no real condition (its pips are hidden
+      // in the UI), but CSV-imported rows still carry a placeholder value in
+      // the DB, which used to sort them into the middle of the list next to
+      // owned figures of the same coincidental number. Owned figures sort by
+      // real condition first; everything else always sorts after them,
+      // alphabetically.
+      const aOwned = a.status === 'owned', bOwned = b.status === 'owned';
+      if (aOwned !== bOwned) return aOwned ? -1 : 1;
+      if (!aOwned) return byName;
+      return ((b.condition||5)-(a.condition||5)) || byName;
+    }
+    if (sort==='faction') return byFaction || byName;
     return 0;
   });
 }
@@ -832,8 +853,12 @@ function figCardHtml(f) {
 // Groups figures into consecutive runs sharing the same year (in whatever order
 // `items` is already sorted in) so the grid can break onto a fresh row per year
 // with a header denoting the year change, rather than one continuous grid.
+// Only meaningful when the list is actually ordered by year — sorting by
+// name/condition/faction interleaves years, so a year divider there would
+// just chop the list into confusing one-or-two-figure fragments.
 function buildGrid(items) {
   if (!items.length) return '';
+  if (sort !== 'year') return `<div class="card-grid">${items.map(figCardHtml).join('')}</div>`;
   const groups = [];
   items.forEach(f => {
     const last = groups[groups.length-1];
@@ -882,8 +907,13 @@ function listRowHtml(f) {
 
 // Groups figures into consecutive runs sharing the same year (in whatever order
 // `items` is already sorted in) so a divider row can mark each year change,
-// the same way the grid view breaks onto a fresh row per year.
+// the same way the grid view breaks onto a fresh row per year. Only applied
+// when actually sorted by year — see buildGrid() for why.
 function buildList(items) {
+  const header = `<div class="list-header"><div></div><div>Figure</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>`;
+  if (sort !== 'year') {
+    return `<div class="list-view">${header}${items.map(listRowHtml).join('')}</div>`;
+  }
   const groups = [];
   items.forEach(f => {
     const last = groups[groups.length-1];
@@ -892,7 +922,7 @@ function buildList(items) {
   });
   return `
   <div class="list-view">
-    <div class="list-header"><div></div><div>Figure</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>
+    ${header}
     ${groups.map(g => `
     <div class="list-year-divider">
       <span class="list-year-label">${g.year || 'Year unknown'}</span>
