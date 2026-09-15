@@ -114,6 +114,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .tag-joe{background:var(--joe-dim);color:var(--joe-text)}
 .tag-cobra{background:var(--cobra-dim);color:var(--cobra-text)}
 .tag-sub{background:var(--surface3);color:var(--text2);border:1px solid var(--border)}
+.tag-wanted{background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.35)}
+.tag-oob{background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.35)}
 .pips{display:flex;gap:3px;align-items:center}
 .pip{flex:1;height:4px;border-radius:2px;background:var(--surface3)}
 .pip.on-joe{background:var(--joe)}
@@ -289,6 +291,7 @@ function fromRow(r) {
     codename:         r.codename || '',
     faction:          r.faction,
     year:             r.year,
+    status:           r.status || 'owned',
     subgroup:         r.subgroup || '',
     vehicle:          r.vehicle || '',
     condition:        r.condition,
@@ -310,6 +313,7 @@ function toRow(f) {
     codename:         f.codename || null,
     faction:          f.faction,
     year:             f.year || null,
+    status:           f.status || 'owned',
     subgroup:         f.subgroup || null,
     vehicle:          f.vehicle || null,
     condition:        f.condition || 7,
@@ -330,6 +334,19 @@ async function dbFetch() {
 
 async function dbInsert(fig) {
   const rows = await sbFetch('figures', { method: 'POST', body: JSON.stringify(toRow(fig)) });
+  return fromRow(rows[0]);
+}
+
+// Insert/update with an explicit, partial set of already-snake_case DB columns
+// (bypasses toRow()'s defaults) — used by CSV import so it only ever touches
+// the catalog fields the CSV governs, and never clobbers condition, photos,
+// notes or acquisition details with toRow()'s fallback values.
+async function dbInsertFields(fields) {
+  const rows = await sbFetch('figures', { method: 'POST', body: JSON.stringify(fields) });
+  return fromRow(rows[0]);
+}
+async function dbPatchFields(id, fields) {
+  const rows = await sbFetch(`figures?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(fields) });
   return fromRow(rows[0]);
 }
 
@@ -397,6 +414,7 @@ let collection = [];
 let loading = true;
 let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
 let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterVehicle = false, search = '';
+let filterStatus = 'owned'; // 'all' | 'owned' | 'wanted' | 'out_of_budget' — defaults to just what you own
 let sort = 'year', view = 'list';
 let modal = null, editId = null;
 let lightbox = null; // { figureId, index } — larger-image viewer, independent of the edit modal
@@ -499,6 +517,7 @@ function genId() { return 'tmp_' + Date.now(); }
 
 function filteredCollection() {
   return collection.filter(f => {
+    if (filterStatus !== 'all' && (f.status||'owned') !== filterStatus) return false;
     if (filterFaction !== 'all' && f.faction !== filterFaction) return false;
     if (filterYear !== 'all' && String(f.year) !== filterYear) return false;
     if (filterSubgroup !== 'all' && f.subgroup !== filterSubgroup) return false;
@@ -605,16 +624,23 @@ function buildApp() {
 
   const items = filteredCollection();
   const total = collection.length;
-  const joeCount = collection.filter(f=>f.faction==='GI Joe').length;
-  const cobraCount = collection.filter(f=>f.faction==='Cobra').length;
+  const ownedCount = collection.filter(f=>(f.status||'owned')==='owned').length;
+  const wantedCount = collection.filter(f=>(f.status||'owned')==='wanted').length;
+  const oobCount = collection.filter(f=>(f.status||'owned')==='out_of_budget').length;
   const completeCount = collection.filter(f=>{
+    if ((f.status||'owned')!=='owned') return false;
     const t=(f.accessories||[]).length, o=(f.accessoriesOwned||[]).length;
     return t===0 || o===t;
   }).length;
 
-  const years = ['all', ...Array.from(new Set(collection.map(f=>f.year).filter(Boolean))).sort()];
-  const subgroups = ['all', ...Array.from(new Set(collection.map(f=>f.subgroup).filter(Boolean))).sort()];
-  const vehicleCount = collection.filter(f=>f.vehicle).length;
+  // Faction/Year/Team/Vehicle facets are scoped to whichever status is
+  // currently selected (defaults to "owned"), so e.g. the Faction breakdown
+  // reflects what you actually own rather than the whole 82-89 checklist.
+  const statusScope = collection.filter(f => filterStatus==='all' || (f.status||'owned')===filterStatus);
+  const scopedTotal = statusScope.length;
+  const years = ['all', ...Array.from(new Set(statusScope.map(f=>f.year).filter(Boolean))).sort()];
+  const subgroups = ['all', ...Array.from(new Set(statusScope.map(f=>f.subgroup).filter(Boolean))).sort()];
+  const vehicleCount = statusScope.filter(f=>f.vehicle).length;
 
   const syncLabel = syncStatus==='ok' ? 'Synced' : syncStatus==='busy' ? 'Syncing...' : 'Offline';
 
@@ -628,7 +654,11 @@ function buildApp() {
     </div>
     <div class="topbar-right">
       <div class="sync-status"><div class="sync-dot ${syncStatus}"></div>${syncLabel}</div>
-      ${isAdmin() ? '<button class="btn btn-primary" id="btn-add">+ Add figure</button>' : ''}
+      ${isAdmin() ? `
+      <button class="btn btn-ghost" id="btn-export-csv" title="Download the full collection as CSV">Export CSV</button>
+      <button class="btn btn-ghost" id="btn-import-csv" title="Upsert figures from a CSV file">Import CSV</button>
+      <input type="file" id="f-import-csv" accept=".csv,text/csv" style="display:none"/>
+      <button class="btn btn-primary" id="btn-add">+ Add figure</button>` : ''}
       <div style="position:relative" id="auth-wrap">
         ${currentUser
           ? `<button class="btn btn-ghost" id="auth-btn" style="display:flex;align-items:center;gap:7px">
@@ -649,18 +679,26 @@ function buildApp() {
     <aside class="sidebar">
       <div class="sidebar-section">
         <div class="stats-row">
-          <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total</div></div>
+          <div class="stat-card"><div class="num">${ownedCount}</div><div class="lbl">Owned</div></div>
           <div class="stat-card"><div class="num">${completeCount}</div><div class="lbl">Complete</div></div>
-          <div class="stat-card" style="border-top:2px solid var(--joe)"><div class="num">${joeCount}</div><div class="lbl">GI Joe</div></div>
-          <div class="stat-card" style="border-top:2px solid var(--cobra)"><div class="num">${cobraCount}</div><div class="lbl">Cobra</div></div>
+          <div class="stat-card"><div class="num">${wantedCount}</div><div class="lbl">Wanted</div></div>
+          <div class="stat-card"><div class="num">${oobCount}</div><div class="lbl">Out of budget</div></div>
         </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-heading">Status</div>
+        ${[['all','All statuses'],['owned','Owned'],['wanted','Wanted'],['out_of_budget','Out of budget']].map(([val,label])=>`
+          <div class="filter-item ${filterStatus===val?'active':''}" data-fst="${val}">
+            <span>${label}</span>
+            <span class="count">${val==='all'?total:collection.filter(f=>(f.status||'owned')===val).length}</span>
+          </div>`).join('')}
       </div>
       <div class="sidebar-section">
         <div class="sidebar-heading">Faction</div>
         ${[['all','All factions',null],['GI Joe','GI Joe','joe'],['Cobra','Cobra','cobra']].map(([val,label,dot])=>`
           <div class="filter-item ${filterFaction===val?'active':''}" data-ff="${val}">
             <span>${dot?`<span class="faction-dot" style="background:var(--${dot})"></span>`:''}${label}</span>
-            <span class="count">${val==='all'?total:collection.filter(f=>f.faction===val).length}</span>
+            <span class="count">${val==='all'?scopedTotal:statusScope.filter(f=>f.faction===val).length}</span>
           </div>`).join('')}
       </div>
       <div class="sidebar-section">
@@ -668,7 +706,7 @@ function buildApp() {
         ${years.map(y=>`
           <div class="filter-item ${filterYear===String(y)?'active':''}" data-fy="${y}">
             <span>${y==='all'?'All years':y}</span>
-            <span class="count">${y==='all'?total:collection.filter(f=>String(f.year)===String(y)).length}</span>
+            <span class="count">${y==='all'?scopedTotal:statusScope.filter(f=>String(f.year)===String(y)).length}</span>
           </div>`).join('')}
       </div>
       ${subgroups.length>1?`
@@ -677,7 +715,7 @@ function buildApp() {
         ${subgroups.map(sg=>`
           <div class="filter-item ${filterSubgroup===sg?'active':''}" data-fs="${sg}">
             <span>${sg==='all'?'All teams':sg}</span>
-            <span class="count">${sg==='all'?total:collection.filter(f=>f.subgroup===sg).length}</span>
+            <span class="count">${sg==='all'?scopedTotal:statusScope.filter(f=>f.subgroup===sg).length}</span>
           </div>`).join('')}
       </div>`:''}
       ${vehicleCount>0?`
@@ -760,6 +798,8 @@ function figCardHtml(f) {
         <div><div class="card-name">${f.name}</div></div>
         <div class="card-tags">
           <span class="tag tag-${fc}">${f.faction}</span>
+          ${f.status==='wanted'?`<span class="tag tag-wanted">Wanted</span>`:''}
+          ${f.status==='out_of_budget'?`<span class="tag tag-oob">Out of budget</span>`:''}
           ${f.subgroup?`<span class="tag tag-sub">${f.subgroup}</span>`:''}
           ${f.vehicle?`<span class="tag tag-sub">🚗 ${f.vehicle}</span>`:''}
         </div>
@@ -807,7 +847,7 @@ function listRowHtml(f) {
   return `
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
-        <div><div class="list-name">${f.name}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
+        <div><div class="list-name">${f.name}${f.status==='wanted'?`<span class="tag tag-wanted" style="margin-left:7px;vertical-align:middle">Wanted</span>`:''}${f.status==='out_of_budget'?`<span class="tag tag-oob" style="margin-left:7px;vertical-align:middle">Out of budget</span>`:''}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
           <div class="list-pips">${Array.from({length:10},(_,i)=>`<div class="list-pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}</div>
@@ -867,6 +907,13 @@ function buildModal() {
               <select class="form-select" id="f-faction">
                 <option value="GI Joe" ${fc?'selected':''}>GI Joe</option>
                 <option value="Cobra" ${!fc?'selected':''}>Cobra</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">Status</label>
+              <select class="form-select" id="f-status">
+                <option value="owned" ${(F.status||'owned')==='owned'?'selected':''}>Owned</option>
+                <option value="wanted" ${F.status==='wanted'?'selected':''}>Wanted</option>
+                <option value="out_of_budget" ${F.status==='out_of_budget'?'selected':''}>Out of budget</option>
               </select>
             </div>
             <div class="form-group"><label class="form-label">Year</label>
@@ -986,6 +1033,15 @@ function bindEvents() {
   q('search-clear')?.addEventListener('click', ()=>{search='';render();q('search')?.focus();});
   q('btn-add')?.addEventListener('click', openAdd);
   q('btn-add2')?.addEventListener('click', openAdd);
+  q('btn-export-csv')?.addEventListener('click', exportCsv);
+  q('btn-import-csv')?.addEventListener('click', () => q('f-import-csv')?.click());
+  q('f-import-csv')?.addEventListener('change', e=>{
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { importCsvText(ev.target.result); e.target.value = ''; };
+    reader.readAsText(file);
+  });
   q('vg')?.addEventListener('click', ()=>{view='grid';render();});
   q('vl')?.addEventListener('click', ()=>{view='list';render();});
   q('sort')?.addEventListener('change', e=>{sort=e.target.value;render();});
@@ -1005,6 +1061,7 @@ function bindEvents() {
     if (wrap && menu && !wrap.contains(e.target)) menu.style.display = 'none';
   }, { once: false });
 
+  document.querySelectorAll('[data-fst]').forEach(el=>el.addEventListener('click',()=>{filterStatus=el.dataset.fst;render();}));
   document.querySelectorAll('[data-ff]').forEach(el=>el.addEventListener('click',()=>{filterFaction=el.dataset.ff;render();}));
   document.querySelectorAll('[data-fy]').forEach(el=>el.addEventListener('click',()=>{filterYear=el.dataset.fy;render();}));
   document.querySelectorAll('[data-fs]').forEach(el=>el.addEventListener('click',()=>{filterSubgroup=el.dataset.fs;render();}));
@@ -1036,6 +1093,7 @@ function bindEvents() {
     q('f-name')?.addEventListener('input', e=>{F.name=e.target.value;});
     q('f-codename')?.addEventListener('input', e=>{F.codename=e.target.value;});
     q('f-faction')?.addEventListener('change', e=>{F.faction=e.target.value;render();});
+    q('f-status')?.addEventListener('change', e=>{F.status=e.target.value;});
     q('f-year')?.addEventListener('change', e=>{F.year=e.target.value?parseInt(e.target.value):null;});
     q('f-subgroup')?.addEventListener('input', e=>{F.subgroup=e.target.value;});
     q('f-vehicle')?.addEventListener('input', e=>{F.vehicle=e.target.value;});
@@ -1084,6 +1142,7 @@ function readForm() {
     name:             q('f-name')?.value.trim()||F.name||'',
     codename:         q('f-codename')?.value.trim()||'',
     faction:          q('f-faction')?.value||'GI Joe',
+    status:           q('f-status')?.value||'owned',
     year:             parseInt(q('f-year')?.value)||null,
     subgroup:         q('f-subgroup')?.value.trim()||'',
     vehicle:          q('f-vehicle')?.value.trim()||'',
@@ -1100,7 +1159,7 @@ function readForm() {
   };
 }
 
-function openAdd(){F={condition:7,accessories:[],accessoriesOwned:[],images:[],faction:'GI Joe'};modal='add';editId=null;render();}
+function openAdd(){F={condition:7,accessories:[],accessoriesOwned:[],images:[],faction:'GI Joe',status:'owned'};modal='add';editId=null;render();}
 function openEdit(id){
   const fig=collection.find(f=>f.id===id);
   if(!fig)return;
@@ -1181,6 +1240,150 @@ async function delFig() {
     console.error(e);
     render();
   }
+}
+
+// ── CSV EXPORT / IMPORT ──────────────────────────────────────────────────────
+// Round-trip design: the CSV is authoritative for catalog fields (name,
+// codename, faction, year, subgroup, vehicle), accessories, accessories_owned
+// and status — import always overwrites these from the file. Condition,
+// photos, notes and acquisition date/price are exclusively app-managed and
+// are never touched by import (new rows get sane defaults; existing rows
+// keep whatever they already have via dbPatchFields, which only sends the
+// fields listed below).
+function csvEscape(v) {
+  const s = (v===null||v===undefined) ? '' : String(v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+function exportCsv() {
+  const headers = ['name','codename','faction','year','subgroup','vehicle','accessories','accessories_owned','status'];
+  const lines = [headers.join(',')];
+  collection.forEach(f => {
+    const row = [
+      f.name||'',
+      f.codename||'',
+      f.faction||'',
+      f.year||'',
+      f.subgroup||'',
+      f.vehicle||'',
+      (f.accessories||[]).join(';'),
+      (f.accessoriesOwned||[]).join(';'),
+      f.status||'owned',
+    ];
+    lines.push(row.map(csvEscape).join(','));
+  });
+  const csv = lines.join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `gijoe-vault-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('CSV exported', 'success');
+}
+
+// RFC4180-ish parser: handles quoted fields with embedded commas, newlines
+// and escaped ("") quotes, so a multi-line note or a name containing a comma
+// in the source spreadsheet survives the round trip.
+function parseCsvText(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false, i = 0;
+  const len = text.length;
+  while (i < len) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ',') { row.push(field); field = ''; i++; continue; }
+    if (c === '\r') { i++; continue; }
+    if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter(r => !(r.length === 1 && String(r[0]).trim() === ''));
+}
+
+function normalizeStatus(s) {
+  const v = String(s||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
+  if (v === 'wanted' || v === 'want') return 'wanted';
+  if (v === 'out_of_budget' || v === 'oob') return 'out_of_budget';
+  return 'owned';
+}
+
+function normalizeFaction(s) {
+  return String(s||'').trim().toLowerCase() === 'cobra' ? 'Cobra' : 'GI Joe';
+}
+
+function normKey(s) { return String(s===null||s===undefined?'':s).trim().toLowerCase(); }
+
+async function importCsvText(text) {
+  if (!isAdmin()) { toast('Sign in to import', 'error'); return; }
+  const rowsRaw = parseCsvText(text);
+  if (rowsRaw.length < 2) { toast('CSV appears empty', 'error'); return; }
+  const headerRow = rowsRaw[0].map(h => String(h||'').trim().toLowerCase().replace(/\s+/g,'_'));
+  const dataRows = rowsRaw.slice(1);
+
+  let inserted = 0, updated = 0, errors = 0;
+  syncStatus = 'busy'; render();
+
+  for (const r of dataRows) {
+    if (r.every(c => String(c||'').trim()==='')) continue; // skip blank rows
+    const obj = {};
+    headerRow.forEach((h,idx) => { obj[h] = r[idx] !== undefined ? r[idx] : ''; });
+    if (!obj.name || !String(obj.name).trim()) { errors++; continue; }
+
+    const accessories = obj.accessories ? String(obj.accessories).split(';').map(s=>s.trim()).filter(Boolean) : [];
+    const accessoriesOwnedRaw = obj.accessories_owned ? String(obj.accessories_owned).split(';').map(s=>s.trim()).filter(Boolean) : [];
+    const payload = {
+      name:              String(obj.name).trim(),
+      codename:          obj.codename ? String(obj.codename).trim() : null,
+      faction:           normalizeFaction(obj.faction),
+      year:              obj.year ? (parseInt(obj.year) || null) : null,
+      subgroup:          obj.subgroup ? String(obj.subgroup).trim() : null,
+      vehicle:           obj.vehicle ? String(obj.vehicle).trim() : null,
+      accessories:       accessories,
+      // Only counts an owned accessory if it exactly matches a name in the
+      // accessories column — guards against a typo'd owned-list silently
+      // introducing an accessory that isn't otherwise tracked for the figure.
+      accessories_owned: accessoriesOwnedRaw.filter(a => accessories.includes(a)),
+      status:            normalizeStatus(obj.status),
+    };
+
+    const match = collection.find(f =>
+      normKey(f.name) === normKey(payload.name) &&
+      normKey(f.codename) === normKey(payload.codename) &&
+      normKey(f.year) === normKey(payload.year)
+    );
+
+    try {
+      if (match) {
+        const saved = await dbPatchFields(match.id, payload);
+        const i = collection.findIndex(f=>f.id===match.id);
+        if (i>-1) collection[i] = saved;
+        updated++;
+      } else {
+        const saved = await dbInsertFields({ ...payload, condition: 7, images: [] });
+        collection.push(saved);
+        inserted++;
+      }
+    } catch(e) {
+      console.error('CSV row import failed for', payload.name, e);
+      errors++;
+    }
+  }
+
+  syncStatus = 'ok';
+  toast(`Import complete — ${inserted} added, ${updated} updated${errors?`, ${errors} error${errors!==1?'s':''} (see console)`:''}`, errors?'error':'success', 8000);
+  render();
 }
 
 function toast(msg,type='info',duration){
