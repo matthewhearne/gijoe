@@ -109,7 +109,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .img-expand-btn:hover{background:rgba(0,0,0,0.8)}
 .card-body{padding:12px 14px;flex:1;display:flex;flex-direction:column;gap:8px}
 .card-name{font-family:'Inter Tight',sans-serif;font-size:14px;font-weight:600;color:var(--text);line-height:1.2}
-.card-specialty{font-size:11px;color:var(--text3)}
 .card-tags{display:flex;gap:5px;flex-wrap:wrap}
 .tag{font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px}
 .tag-joe{background:var(--joe-dim);color:var(--joe-text)}
@@ -130,7 +129,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
 /* LIST VIEW */
 .list-view{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.list-header,.list-row{display:grid;grid-template-columns:10px 1fr 130px 56px 130px 170px 70px;gap:12px;align-items:center;padding:10px 16px}
+.list-header,.list-row{display:grid;grid-template-columns:10px 1fr 56px 130px 170px 70px;gap:12px;align-items:center;padding:10px 16px}
 .list-header{background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3)}
 .list-row{background:var(--surface);border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;transition:background 0.1s}
 .list-row:last-child{border-bottom:none}
@@ -290,7 +289,6 @@ function fromRow(r) {
     codename:         r.codename || '',
     faction:          r.faction,
     year:             r.year,
-    specialty:        r.specialty || '',
     subgroup:         r.subgroup || '',
     vehicle:          r.vehicle || '',
     condition:        r.condition,
@@ -312,7 +310,6 @@ function toRow(f) {
     codename:         f.codename || null,
     faction:          f.faction,
     year:             f.year || null,
-    specialty:        f.specialty || null,
     subgroup:         f.subgroup || null,
     vehicle:          f.vehicle || null,
     condition:        f.condition || 7,
@@ -392,111 +389,14 @@ async function getCachedUrl(path) {
   return url;
 }
 
-// ── REFERENCE DATA ────────────────────────────────────────────────────────────
+// ── CONDITION LABELS ──────────────────────────────────────────────────────────
 const COND = {10:'Mint — factory fresh',9:'Near mint',8:'Very fine',7:'Fine',6:'Very good',5:'Good',4:'Fair',3:'Poor',2:'Damaged',1:'Heavy damage'};
-const REFERENCE = [
-  {name:"Snake Eyes",year:1982,faction:"GI Joe",specialty:"Commando",subgroup:"",accessories:["Uzi","Backpack","Grenades"]},
-  {name:"Cobra Commander",year:1982,faction:"Cobra",specialty:"Supreme Commander",subgroup:"Cobra High Command",accessories:["Hood","Pistol"]},
-  {name:"Scarlett",year:1982,faction:"GI Joe",specialty:"Counter Intelligence",subgroup:"",accessories:["Crossbow","Backpack"]},
-  {name:"Breaker",year:1982,faction:"GI Joe",specialty:"Communications",subgroup:"",accessories:["Backpack","Rifle"]},
-  {name:"Stalker",year:1982,faction:"GI Joe",specialty:"Ranger",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Grunt",year:1982,faction:"GI Joe",specialty:"Infantry",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Rock 'n Roll",year:1982,faction:"GI Joe",specialty:"Machine Gunner",subgroup:"",accessories:["Machine Gun","Tripod","Backpack"]},
-  {name:"Flash",year:1982,faction:"GI Joe",specialty:"Laser Rifle Trooper",subgroup:"",accessories:["Laser Rifle","Visor","Backpack"]},
-  {name:"Zap",year:1982,faction:"GI Joe",specialty:"Bazooka Soldier",subgroup:"",accessories:["Bazooka","Backpack"]},
-  {name:"Short-Fuze",year:1982,faction:"GI Joe",specialty:"Mortar Soldier",subgroup:"",accessories:["Mortar","Backpack"]},
-  {name:"Cobra Officer",year:1982,faction:"Cobra",specialty:"Infantry Officer",subgroup:"Cobra Infantry",accessories:["Rifle"]},
-  {name:"Cobra Soldier",year:1982,faction:"Cobra",specialty:"Infantry Trooper",subgroup:"Cobra Infantry",accessories:["Rifle"]},
-  {name:"Duke",year:1983,faction:"GI Joe",specialty:"First Sergeant",subgroup:"",accessories:["Rifle","Backpack","Pistol"]},
-  {name:"Destro",year:1983,faction:"Cobra",specialty:"Weapons Supplier",subgroup:"Cobra High Command",accessories:["Pistol"]},
-  {name:"Gung-Ho",year:1983,faction:"GI Joe",specialty:"Marine",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Torpedo",year:1983,faction:"GI Joe",specialty:"Navy SEAL",subgroup:"Navy",accessories:["Speargun","Flippers","Oxygen Tank"]},
-  {name:"Snow Job",year:1983,faction:"GI Joe",specialty:"Arctic Trooper",subgroup:"Arctic",accessories:["Skis","Poles","Rifle"]},
-  {name:"Doc",year:1983,faction:"GI Joe",specialty:"Medic",subgroup:"",accessories:["Medical Bag","Pistol"]},
-  {name:"Major Bludd",year:1983,faction:"Cobra",specialty:"Mercenary",subgroup:"Cobra High Command",accessories:["Pistol","Backpack"]},
-  {name:"HISS Driver",year:1983,faction:"Cobra",specialty:"Tank Driver",subgroup:"Cobra Armored",accessories:["Pistol"],vehicle:"H.I.S.S. Tank"},
-  {name:"Wild Bill",year:1983,faction:"GI Joe",specialty:"Helicopter Pilot",subgroup:"Air Assault",accessories:["Pistols (x2)","Hat"],vehicle:"Dragonfly XH-1"},
-  {name:"Ace",year:1983,faction:"GI Joe",specialty:"Fighter Pilot",subgroup:"Air Assault",accessories:["Helmet","Pistol"],vehicle:"Skystriker XP-14F"},
-  {name:"Firefly",year:1984,faction:"Cobra",specialty:"Saboteur",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Storm Shadow",year:1984,faction:"Cobra",specialty:"Ninja",subgroup:"",accessories:["Bow","Arrows","Sword","Nunchucks","Backpack"]},
-  {name:"Baroness",year:1984,faction:"Cobra",specialty:"Intelligence Officer",subgroup:"Cobra High Command",accessories:["Rifle","Pistol"]},
-  {name:"Zartan",year:1984,faction:"Cobra",specialty:"Master of Disguise",subgroup:"Dreadnoks",accessories:["Hood","Pistol","Backpack"],vehicle:"Swamp Skier"},
-  {name:"Roadblock",year:1984,faction:"GI Joe",specialty:"Heavy Machine Gunner",subgroup:"",accessories:["M2 Browning","Tripod"]},
-  {name:"Recondo",year:1984,faction:"GI Joe",specialty:"Jungle Trooper",subgroup:"",accessories:["Rifle","Hat","Backpack"]},
-  {name:"Spirit",year:1984,faction:"GI Joe",specialty:"Tracker",subgroup:"",accessories:["Rifle","Eagle (Freedom)"]},
-  {name:"Mutt & Junkyard",year:1984,faction:"GI Joe",specialty:"Dog Handler",subgroup:"",accessories:["Junkyard (Dog)","Muzzle","Rifle"]},
-  {name:"Shipwreck",year:1984,faction:"GI Joe",specialty:"Navy SEAL",subgroup:"Navy",accessories:["Pistol","Parrot (Polly)"]},
-  {name:"Buzzer",year:1984,faction:"Cobra",specialty:"Mercenary Biker",subgroup:"Dreadnoks",accessories:["Chainsaw"]},
-  {name:"Ripper",year:1984,faction:"Cobra",specialty:"Mercenary Biker",subgroup:"Dreadnoks",accessories:["Jaws-of-Life","Pistol"]},
-  {name:"Torch",year:1984,faction:"Cobra",specialty:"Mercenary Biker",subgroup:"Dreadnoks",accessories:["Blowtorch Tool","Pistol"]},
-  {name:"Crimson Guard",year:1984,faction:"Cobra",specialty:"Elite Trooper",subgroup:"Crimson Guard",accessories:["Rifle","Pistol"]},
-  {name:"Scrap-Iron",year:1984,faction:"Cobra",specialty:"Anti-Armor Specialist",subgroup:"",accessories:["Launcher","Missile","Backpack"]},
-  {name:"Flint",year:1985,faction:"GI Joe",specialty:"Warrant Officer",subgroup:"",accessories:["Shotgun","Beret","Backpack"]},
-  {name:"Lady Jaye",year:1985,faction:"GI Joe",specialty:"Covert Operations",subgroup:"",accessories:["Javelin Launcher","Javelins"]},
-  {name:"Quick Kick",year:1985,faction:"GI Joe",specialty:"Silent Weapons",subgroup:"",accessories:[]},
-  {name:"Snake Eyes v2",year:1985,faction:"GI Joe",specialty:"Commando",subgroup:"",accessories:["Uzi","Backpack","Timber (Wolf)"]},
-  {name:"Airtight",year:1985,faction:"GI Joe",specialty:"Hostile Environment",subgroup:"",accessories:["Gas Gun","Backpack","Helmet"]},
-  {name:"Bazooka",year:1985,faction:"GI Joe",specialty:"Missile Specialist",subgroup:"",accessories:["Bazooka","Helmet"]},
-  {name:"Alpine",year:1985,faction:"GI Joe",specialty:"Mountain Trooper",subgroup:"",accessories:["Grappling Hook","Rope","Pistol"]},
-  {name:"Footloose",year:1985,faction:"GI Joe",specialty:"Infantry",subgroup:"",accessories:["Rifle","Backpack","Helmet"]},
-  {name:"Barbecue",year:1985,faction:"GI Joe",specialty:"Fire Fighter",subgroup:"",accessories:["Helmet","Axe","Hose Backpack"]},
-  {name:"Snow Serpent",year:1985,faction:"Cobra",specialty:"Polar Assault Trooper",subgroup:"Cobra Vipers",accessories:["Rifle","Backpack","Skis","Poles"]},
-  {name:"Eel",year:1985,faction:"Cobra",specialty:"Frogman",subgroup:"Cobra Vipers",accessories:["Speargun","Flippers","Oxygen Tank"]},
-  {name:"Tele-Viper",year:1985,faction:"Cobra",specialty:"Communications",subgroup:"Cobra Vipers",accessories:["Rifle","Antenna Backpack"]},
-  {name:"Tomax",year:1985,faction:"Cobra",specialty:"Crimson Guard Commander",subgroup:"Crimson Guard",accessories:["Pistol"]},
-  {name:"Xamot",year:1985,faction:"Cobra",specialty:"Crimson Guard Commander",subgroup:"Crimson Guard",accessories:["Pistol"]},
-  {name:"Viper",year:1986,faction:"Cobra",specialty:"Infantry Trooper",subgroup:"Cobra Vipers",accessories:["Rifle","Backpack","Shield"]},
-  {name:"B.A.T.",year:1986,faction:"Cobra",specialty:"Battle Android Trooper",subgroup:"Cobra Androids",accessories:["Gun Hand","Claw Hand","Flamethrower Hand"]},
-  {name:"Dr. Mindbender",year:1986,faction:"Cobra",specialty:"Master of Mind Control",subgroup:"Cobra High Command",accessories:["Cape","Pistol"]},
-  {name:"Serpentor",year:1986,faction:"Cobra",specialty:"Cobra Emperor",subgroup:"Cobra High Command",accessories:["Air Chariot","Snake Cape","Rifle"],vehicle:"Air Chariot"},
-  {name:"Zarana",year:1986,faction:"Cobra",specialty:"Undercover Agent",subgroup:"Dreadnoks",accessories:["Pistol"]},
-  {name:"Monkeywrench",year:1986,faction:"Cobra",specialty:"Explosives",subgroup:"Dreadnoks",accessories:["Grenade Launcher","Pistol"]},
-  {name:"Wet-Suit",year:1986,faction:"GI Joe",specialty:"Navy SEAL",subgroup:"Navy",accessories:["Rifle","Oxygen Tank","Backpack"]},
-  {name:"Leatherneck",year:1986,faction:"GI Joe",specialty:"Marine Infantry",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Mainframe",year:1986,faction:"GI Joe",specialty:"Computer Specialist",subgroup:"",accessories:["Computer Console","Rifle"]},
-  {name:"Lifeline",year:1986,faction:"GI Joe",specialty:"Rescue Trooper",subgroup:"",accessories:["Medical Backpack","Rifle"]},
-  {name:"Beachhead",year:1986,faction:"GI Joe",specialty:"Ranger",subgroup:"",accessories:["Rifle","Balaclava","Backpack"]},
-  {name:"Sci-Fi",year:1986,faction:"GI Joe",specialty:"Directed Energy Specialist",subgroup:"",accessories:["Laser Rifle","Backpack"]},
-  {name:"Low-Light",year:1986,faction:"GI Joe",specialty:"Night Spotter",subgroup:"",accessories:["Sniper Rifle","Backpack"]},
-  {name:"Dial-Tone",year:1986,faction:"GI Joe",specialty:"Communications",subgroup:"",accessories:["Radio Backpack","Rifle"]},
-  {name:"Tunnel Rat",year:1987,faction:"GI Joe",specialty:"EOD / Tunnels",subgroup:"",accessories:["Rifle","Backpack","Flashlight"]},
-  {name:"Falcon",year:1987,faction:"GI Joe",specialty:"Green Beret",subgroup:"",accessories:["Rifle","Backpack","Beret"]},
-  {name:"Jinx",year:1987,faction:"GI Joe",specialty:"Intelligence",subgroup:"",accessories:["Rifle","Nunchucks"]},
-  {name:"Outback",year:1987,faction:"GI Joe",specialty:"Survivalist",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Chuckles",year:1987,faction:"GI Joe",specialty:"Undercover Agent",subgroup:"",accessories:["Pistol"]},
-  {name:"Law & Order",year:1987,faction:"GI Joe",specialty:"Military Police",subgroup:"",accessories:["Rifle","Order (Dog)"]},
-  {name:"Fast Draw",year:1987,faction:"GI Joe",specialty:"Mobile Missile Specialist",subgroup:"",accessories:["Missiles","Launcher Backpack"]},
-  {name:"Raptor",year:1987,faction:"Cobra",specialty:"Falcon Trainer",subgroup:"",accessories:["Falcon","Rifle"]},
-  {name:"Crystal Ball",year:1987,faction:"Cobra",specialty:"Hypnotist",subgroup:"",accessories:["Shield","Helmet"]},
-  {name:"Techno-Viper",year:1987,faction:"Cobra",specialty:"Battlefield Technician",subgroup:"Cobra Vipers",accessories:["Wrench","Backpack","Rifle"]},
-  {name:"Iron Grenadier",year:1988,faction:"Cobra",specialty:"Elite Infantry",subgroup:"Iron Grenadiers",accessories:["Rifle","Pistol"]},
-  {name:"Voltar",year:1988,faction:"Cobra",specialty:"General",subgroup:"Iron Grenadiers",accessories:["Staff","Bird"]},
-  {name:"Storm Shadow v2",year:1988,faction:"GI Joe",specialty:"Ninja",subgroup:"",accessories:["Bow","Sword","Backpack"]},
-  {name:"Shockwave",year:1988,faction:"GI Joe",specialty:"SWAT",subgroup:"",accessories:["Rifle","Pistol","Backpack"]},
-  {name:"Repeater",year:1988,faction:"GI Joe",specialty:"Steadi-Cam Machine Gunner",subgroup:"",accessories:["Machine Gun Rig","Backpack"]},
-  {name:"Hit & Run",year:1988,faction:"GI Joe",specialty:"Light Infantry",subgroup:"",accessories:["Rifle","Grappling Hook","Backpack"]},
-  {name:"Charbroil",year:1988,faction:"GI Joe",specialty:"Flamethrower",subgroup:"",accessories:["Flamethrower","Hose","Backpack"]},
-  {name:"Blizzard",year:1988,faction:"GI Joe",specialty:"Arctic Attack Soldier",subgroup:"Arctic",accessories:["Rifle","Skis","Backpack"]},
-  {name:"Spearhead & Max",year:1988,faction:"GI Joe",specialty:"Point Man",subgroup:"",accessories:["Rifle","Max (Bobcat)"]},
-  {name:"Tiger Force Duke",year:1988,faction:"GI Joe",specialty:"First Sergeant",subgroup:"Tiger Force",accessories:["Rifle","Backpack"]},
-  {name:"Tiger Force Flint",year:1988,faction:"GI Joe",specialty:"Warrant Officer",subgroup:"Tiger Force",accessories:["Shotgun","Backpack"]},
-  {name:"Tiger Force Roadblock",year:1988,faction:"GI Joe",specialty:"Heavy Machine Gunner",subgroup:"Tiger Force",accessories:["Machine Gun"]},
-  {name:"Night Viper",year:1989,faction:"Cobra",specialty:"Night Fighter",subgroup:"Cobra Vipers",accessories:["Rifle","Helmet","Visor"]},
-  {name:"Alley Viper",year:1989,faction:"Cobra",specialty:"Urban Assault Trooper",subgroup:"Cobra Vipers",accessories:["Shield","Rifle","Backpack"]},
-  {name:"Frag-Viper",year:1989,faction:"Cobra",specialty:"Grenadier",subgroup:"Cobra Vipers",accessories:["Grenade Launcher","Grenades"]},
-  {name:"Gnawgahyde",year:1989,faction:"Cobra",specialty:"Poacher",subgroup:"Dreadnoks",accessories:["Rifle","Porkbelly (Boar)"]},
-  {name:"Snake Eyes v3",year:1989,faction:"GI Joe",specialty:"Commando",subgroup:"",accessories:["Uzi","Sword","Backpack","Timber (Wolf)"]},
-  {name:"Recoil",year:1989,faction:"GI Joe",specialty:"Long Range Recon",subgroup:"",accessories:["Rifle","Backpack"]},
-  {name:"Backblast",year:1989,faction:"GI Joe",specialty:"Anti-Aircraft Soldier",subgroup:"",accessories:["AA Launcher","Missiles"]},
-  {name:"Downtown",year:1989,faction:"GI Joe",specialty:"Mortar Man",subgroup:"",accessories:["Mortar","Backpack"]},
-  {name:"Sgt. Slaughter",year:1989,faction:"GI Joe",specialty:"Drill Instructor",subgroup:"Slaughters Marauders",accessories:["Baton","Hat"]},
-];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let collection = [];
 let loading = true;
 let syncStatus = 'busy'; // 'ok' | 'err' | 'busy'
-let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterSpecialty = 'all', filterVehicle = false, search = '';
+let filterFaction = 'all', filterYear = 'all', filterSubgroup = 'all', filterVehicle = false, search = '';
 let sort = 'year', view = 'list';
 let modal = null, editId = null;
 let lightbox = null; // { figureId, index } — larger-image viewer, independent of the edit modal
@@ -602,11 +502,10 @@ function filteredCollection() {
     if (filterFaction !== 'all' && f.faction !== filterFaction) return false;
     if (filterYear !== 'all' && String(f.year) !== filterYear) return false;
     if (filterSubgroup !== 'all' && f.subgroup !== filterSubgroup) return false;
-    if (filterSpecialty !== 'all' && f.specialty !== filterSpecialty) return false;
     if (filterVehicle && !f.vehicle) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (!f.name.toLowerCase().includes(q) && !(f.specialty||'').toLowerCase().includes(q) && !(f.subgroup||'').toLowerCase().includes(q)) return false;
+      if (!f.name.toLowerCase().includes(q) && !(f.subgroup||'').toLowerCase().includes(q)) return false;
     }
     return true;
   }).sort((a,b) => {
@@ -631,18 +530,11 @@ function accStatus(f) {
   return {text:`${owned.length}/${list.length}`, cls:'missing', missing};
 }
 
-// Unique specialty / sub-group values seen so far (own collection first, reference
-// data too) — used to power the autocomplete suggestions in the add/edit form.
-function knownSpecialties() {
-  const set = new Set();
-  collection.forEach(f => { if (f.specialty) set.add(f.specialty); });
-  REFERENCE.forEach(r => { if (r.specialty) set.add(r.specialty); });
-  return Array.from(set).sort();
-}
+// Unique sub-group values seen so far in the collection — used to power the
+// autocomplete suggestions in the add/edit form.
 function knownSubgroups() {
   const set = new Set();
   collection.forEach(f => { if (f.subgroup) set.add(f.subgroup); });
-  REFERENCE.forEach(r => { if (r.subgroup) set.add(r.subgroup); });
   return Array.from(set).sort();
 }
 
@@ -722,7 +614,6 @@ function buildApp() {
 
   const years = ['all', ...Array.from(new Set(collection.map(f=>f.year).filter(Boolean))).sort()];
   const subgroups = ['all', ...Array.from(new Set(collection.map(f=>f.subgroup).filter(Boolean))).sort()];
-  const specialties = ['all', ...Array.from(new Set(collection.map(f=>f.specialty).filter(Boolean))).sort()];
   const vehicleCount = collection.filter(f=>f.vehicle).length;
 
   const syncLabel = syncStatus==='ok' ? 'Synced' : syncStatus==='busy' ? 'Syncing...' : 'Offline';
@@ -732,7 +623,7 @@ function buildApp() {
     <div class="logo"><div class="logo-dot"></div>GI Joe Vault</div>
     <div class="search-wrap">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input class="search-input" id="search" type="text" placeholder="Search figures, specialties..." value="${search}"/>
+      <input class="search-input" id="search" type="text" placeholder="Search figures, teams..." value="${search}"/>
       ${search ? `<button class="search-clear" id="search-clear" title="Clear search">✕</button>` : ''}
     </div>
     <div class="topbar-right">
@@ -787,15 +678,6 @@ function buildApp() {
           <div class="filter-item ${filterSubgroup===sg?'active':''}" data-fs="${sg}">
             <span>${sg==='all'?'All teams':sg}</span>
             <span class="count">${sg==='all'?total:collection.filter(f=>f.subgroup===sg).length}</span>
-          </div>`).join('')}
-      </div>`:''}
-      ${specialties.length>1?`
-      <div class="sidebar-section">
-        <div class="sidebar-heading">Specialty</div>
-        ${specialties.map(sp=>`
-          <div class="filter-item ${filterSpecialty===sp?'active':''}" data-fsp="${sp}">
-            <span>${sp==='all'?'All specialties':sp}</span>
-            <span class="count">${sp==='all'?total:collection.filter(f=>f.specialty===sp).length}</span>
           </div>`).join('')}
       </div>`:''}
       ${vehicleCount>0?`
@@ -875,7 +757,7 @@ function figCardHtml(f) {
         ${f.images && f.images.length>1?`<div class="card-photo-count">📷 ${f.images.length}</div>`:''}
       </div>
       <div class="card-body">
-        <div><div class="card-name">${f.name}</div>${f.specialty?`<div class="card-specialty">${f.specialty}</div>`:''}</div>
+        <div><div class="card-name">${f.name}</div></div>
         <div class="card-tags">
           <span class="tag tag-${fc}">${f.faction}</span>
           ${f.subgroup?`<span class="tag tag-sub">${f.subgroup}</span>`:''}
@@ -926,7 +808,6 @@ function listRowHtml(f) {
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
         <div><div class="list-name">${f.name}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
-        <div style="color:var(--text2);font-size:13px">${f.specialty||'—'}</div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
           <div class="list-pips">${Array.from({length:10},(_,i)=>`<div class="list-pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}</div>
@@ -952,7 +833,7 @@ function buildList(items) {
   });
   return `
   <div class="list-view">
-    <div class="list-header"><div></div><div>Figure</div><div>Specialty</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>
+    <div class="list-header"><div></div><div>Figure</div><div>Year</div><div>Condition</div><div>Accessories</div><div></div></div>
     ${groups.map(g => `
     <div class="list-year-divider">
       <span class="list-year-label">${g.year || 'Year unknown'}</span>
@@ -978,13 +859,6 @@ function buildModal() {
       </div>
       <div class="modal-body">
         <div>
-          <div class="modal-section" style="margin-bottom:12px">Load from reference</div>
-          <select class="form-select" id="ref">
-            <option value="">— Select a known figure to pre-fill —</option>
-            ${REFERENCE.map(r=>`<option value="${r.name}" ${F._refName===r.name?'selected':''}>${r.year} · ${r.faction} · ${r.name}</option>`).join('')}
-          </select>
-        </div>
-        <div>
           <div class="modal-section" style="margin-bottom:12px">Identity</div>
           <div class="form-grid">
             <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="f-name" value="${F.name||''}" placeholder="e.g. Snake Eyes"/></div>
@@ -1004,10 +878,6 @@ function buildModal() {
                   return yrs.sort((a,b)=>a-b).map(y=>`<option value="${y}" ${String(F.year)===String(y)?'selected':''}>${y}</option>`).join('');
                 })()}
               </select>
-            </div>
-            <div class="form-group"><label class="form-label">Specialty</label>
-              <input class="form-input" id="f-specialty" list="specialty-list" value="${F.specialty||''}" placeholder="e.g. Commando"/>
-              <datalist id="specialty-list">${knownSpecialties().map(s=>`<option value="${s.replace(/"/g,'&quot;')}"></option>`).join('')}</datalist>
             </div>
             <div class="form-group"><label class="form-label">Sub-group / team</label>
               <input class="form-input" id="f-subgroup" list="subgroup-list" value="${F.subgroup||''}" placeholder="e.g. Tiger Force"/>
@@ -1045,13 +915,6 @@ function buildModal() {
               }).join('')}
             </div>
           </div>`:''}
-        </div>
-        <div>
-          <div class="modal-section" style="margin-bottom:12px">Acquisition</div>
-          <div class="form-grid">
-            <div class="form-group"><label class="form-label">Date acquired</label><input class="form-input" id="f-date" type="date" value="${F.acquisitionDate||''}"/></div>
-            <div class="form-group"><label class="form-label">Price paid (£)</label><input class="form-input" id="f-price" type="number" min="0" step="0.01" value="${F.acquisitionPrice||''}"/></div>
-          </div>
         </div>
         <div>
           <div class="modal-section" style="margin-bottom:12px">Photos</div>
@@ -1145,7 +1008,6 @@ function bindEvents() {
   document.querySelectorAll('[data-ff]').forEach(el=>el.addEventListener('click',()=>{filterFaction=el.dataset.ff;render();}));
   document.querySelectorAll('[data-fy]').forEach(el=>el.addEventListener('click',()=>{filterYear=el.dataset.fy;render();}));
   document.querySelectorAll('[data-fs]').forEach(el=>el.addEventListener('click',()=>{filterSubgroup=el.dataset.fs;render();}));
-  document.querySelectorAll('[data-fsp]').forEach(el=>el.addEventListener('click',()=>{filterSpecialty=el.dataset.fsp;render();}));
   document.querySelectorAll('[data-fveh]').forEach(el=>el.addEventListener('click',()=>{filterVehicle=!filterVehicle;render();}));
 
   document.querySelectorAll('.fig-card[data-id]').forEach(el=>el.addEventListener('click',e=>{if(!e.target.closest('.edit-btn'))openEdit(el.dataset.id);}));
@@ -1168,13 +1030,6 @@ function bindEvents() {
     q('btn-save')?.addEventListener('click', saveFig);
     q('btn-del')?.addEventListener('click', delFig);
 
-    q('ref')?.addEventListener('change', e=>{
-      const r=REFERENCE.find(x=>x.name===e.target.value);
-      if(!r)return;
-      F={...F,name:r.name,faction:r.faction,year:r.year,specialty:r.specialty||'',subgroup:r.subgroup||'',vehicle:r.vehicle||'',accessories:[...(r.accessories||[])],accessoriesOwned:[],_refName:r.name};
-      render();
-    });
-
     // Keep F in sync as the user types/selects, so an intermediate render()
     // (e.g. clicking a condition pip) never wipes out unsaved field values —
     // buildModal() always renders inputs from F, so F has to stay current.
@@ -1182,11 +1037,8 @@ function bindEvents() {
     q('f-codename')?.addEventListener('input', e=>{F.codename=e.target.value;});
     q('f-faction')?.addEventListener('change', e=>{F.faction=e.target.value;render();});
     q('f-year')?.addEventListener('change', e=>{F.year=e.target.value?parseInt(e.target.value):null;});
-    q('f-specialty')?.addEventListener('input', e=>{F.specialty=e.target.value;});
     q('f-subgroup')?.addEventListener('input', e=>{F.subgroup=e.target.value;});
     q('f-vehicle')?.addEventListener('input', e=>{F.vehicle=e.target.value;});
-    q('f-date')?.addEventListener('input', e=>{F.acquisitionDate=e.target.value;});
-    q('f-price')?.addEventListener('input', e=>{F.acquisitionPrice=e.target.value;});
     q('f-notes')?.addEventListener('input', e=>{F.notes=e.target.value;});
     q('f-acc-input')?.addEventListener('input', e=>{
       F.accessories=e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
@@ -1233,14 +1085,16 @@ function readForm() {
     codename:         q('f-codename')?.value.trim()||'',
     faction:          q('f-faction')?.value||'GI Joe',
     year:             parseInt(q('f-year')?.value)||null,
-    specialty:        q('f-specialty')?.value.trim()||'',
     subgroup:         q('f-subgroup')?.value.trim()||'',
     vehicle:          q('f-vehicle')?.value.trim()||'',
     condition:        F.condition||7,
     accessories:      (q('f-acc-input')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
     accessoriesOwned: F.accessoriesOwned||[],
-    acquisitionDate:  q('f-date')?.value||'',
-    acquisitionPrice: q('f-price')?.value||'',
+    // No longer editable in the form — carry through whatever was already on
+    // the record (if anything) instead of re-reading a now-removed input, so
+    // saving an existing figure doesn't quietly blank out old acquisition data.
+    acquisitionDate:  F.acquisitionDate||'',
+    acquisitionPrice: F.acquisitionPrice||'',
     notes:            q('f-notes')?.value||'',
     images:           F.images||[],
   };
