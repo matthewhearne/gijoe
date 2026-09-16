@@ -122,6 +122,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .pip.on-cobra{background:var(--cobra)}
 .pip.on-amber{background:var(--amber)}
 .cond-label{font-size:10px;color:var(--text3);white-space:nowrap}
+.not-rated{font-style:italic;opacity:0.75}
 .card-footer{padding:8px 14px 12px;display:flex;align-items:center;justify-content:space-between}
 .acc-label{font-size:11px;color:var(--text3)}
 .acc-label.complete{color:var(--green)}
@@ -326,7 +327,9 @@ function toRow(f) {
     status:           canonicalStatus(f.status),
     subgroup:         f.subgroup || null,
     vehicle:          f.vehicle || null,
-    condition:        f.condition || 7,
+    // Preserve an explicit "not rated" (0) — `f.condition || 7` would
+    // silently turn it back into a fake "Fine" (7) on every save.
+    condition:        (f.condition===undefined || f.condition===null) ? 7 : f.condition,
     accessories:      f.accessories || [],
     accessories_owned:f.accessoriesOwned || [],
     notes:            f.notes || null,
@@ -560,7 +563,11 @@ function filteredCollection() {
       const aOwned = a.status === 'owned', bOwned = b.status === 'owned';
       if (aOwned !== bOwned) return aOwned ? -1 : 1;
       if (!aOwned) return byName;
-      return ((b.condition||5)-(a.condition||5)) || byName;
+      // A "not rated" owned figure (condition 0/unset) has no real value to
+      // rank by — treat it as lower than every actual rating instead of
+      // defaulting it into the middle of the pack, so it sinks to the end
+      // of the owned group rather than sorting next to a coincidental match.
+      return ((b.condition||0)-(a.condition||0)) || byName;
     }
     if (sort==='faction') return byFaction || byName;
     return 0;
@@ -812,9 +819,14 @@ function figCardHtml(f) {
   const cond = f.condition||5;
   const acc = accStatus(f);
   const firstImg = f.images && f.images[0];
-  // Condition and accessory-completeness only make sense for figures you
-  // actually own — hide them for "Wanted" and "Ignore" figures.
-  const hideCond = f.status==='wanted' || f.status==='ignore';
+  // Accessory-completeness only makes sense for figures you actually own —
+  // hide it (and condition) entirely for "Wanted" and "Ignore" figures.
+  const hideAccessories = f.status==='wanted' || f.status==='ignore';
+  // A figure you own can still have no real condition yet — e.g. a fresh
+  // CSV import inserts a placeholder rather than a genuine assessment.
+  // Treat that as "not rated" instead of quietly showing it as if it had
+  // been checked.
+  const notRated = f.status==='owned' && !f.condition;
   return `
     <div class="fig-card" data-id="${f.id}">
       <div class="card-top-stripe ${fc}"></div>
@@ -837,14 +849,18 @@ function figCardHtml(f) {
           ${f.subgroup?`<span class="tag tag-sub">${f.subgroup}</span>`:''}
           ${f.vehicle?`<span class="tag tag-sub">🚗 ${f.vehicle}</span>`:''}
         </div>
-        ${!hideCond ? `
+        ${!hideAccessories ? (notRated ? `
+        <div class="pips">
+          ${Array.from({length:10},(_,i)=>`<div class="pip"></div>`).join('')}
+          <span class="cond-label not-rated" style="margin-left:6px">Not rated</span>
+        </div>` : `
         <div class="pips">
           ${Array.from({length:10},(_,i)=>`<div class="pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}
           <span class="cond-label" style="margin-left:6px">${cond}/10</span>
-        </div>` : ''}
+        </div>`) : ''}
       </div>
       <div class="card-footer">
-        ${!hideCond ? `<span class="acc-label ${acc.cls}">${acc.text}</span>` : '<span></span>'}
+        ${!hideAccessories ? `<span class="acc-label ${acc.cls}">${acc.text}</span>` : '<span></span>'}
         <button class="edit-btn" data-edit="${f.id}">Edit</button>
       </div>
     </div>`;
@@ -883,21 +899,28 @@ function listRowHtml(f) {
   const noteTip = f.notes ? escAttr(f.notes) : '';
   const photoCount = (f.images||[]).length;
   const photoTip = photoCount ? `View ${photoCount} photo${photoCount!==1?'s':''}` : '';
-  // Condition and accessory-completeness only make sense for figures you
-  // actually own — hide them for "Wanted" and "Ignore" figures.
-  const hideCond = f.status==='wanted' || f.status==='ignore';
+  // Accessory-completeness only makes sense for figures you actually own —
+  // hide it (and condition) entirely for "Wanted" and "Ignore" figures.
+  const hideAccessories = f.status==='wanted' || f.status==='ignore';
+  // A figure you own can still have no real condition yet — e.g. a fresh
+  // CSV import inserts a placeholder rather than a genuine assessment.
+  // Treat that as "not rated" instead of quietly showing it as if it had
+  // been checked.
+  const notRated = f.status==='owned' && !f.condition;
   return `
       <div class="list-row" data-id="${f.id}" ${noteTip?`title="${noteTip}"`:''}>
         <div class="list-stripe ${fc}"></div>
         <div><div class="list-name">${f.name}${f.status==='wanted'?`<span class="tag tag-wanted" style="margin-left:7px;vertical-align:middle">Wanted</span>`:''}${f.status==='ignore'?`<span class="tag tag-ignore" style="margin-left:7px;vertical-align:middle">Ignore</span>`:''}${f.notes?`<span class="note-flag" title="${noteTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>`:''}${photoCount?`<span class="photo-flag" data-view="${f.id}" title="${photoTip}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="photo-flag-count">${photoCount}</span></span>`:''}</div><div class="list-sub">${subLabel}</div></div>
         <div style="color:var(--text2);font-size:13px">${f.year||'—'}</div>
         <div>
-          ${!hideCond ? `
+          ${!hideAccessories ? (notRated ? `
+          <div class="list-pips">${Array.from({length:10},()=>`<div class="list-pip"></div>`).join('')}</div>
+          <div class="list-sub not-rated">Not rated</div>` : `
           <div class="list-pips">${Array.from({length:10},(_,i)=>`<div class="list-pip ${i<cond?pipClass(cond,f.faction):''}"></div>`).join('')}</div>
-          <div class="list-sub">${COND[cond]||''}</div>` : ''}
+          <div class="list-sub">${COND[cond]||''}</div>`) : ''}
         </div>
         <div>
-          ${!hideCond ? `
+          ${!hideAccessories ? `
           <div class="acc-label ${acc.cls}" style="font-size:12px">${acc.text}</div>
           ${acc.missing && acc.missing.length ? `<div class="list-missing">Missing: ${acc.missing.join(', ')}</div>` : ''}` : ''}
         </div>
@@ -934,7 +957,10 @@ function buildList(items) {
 
 function buildModal() {
   const isEdit = modal==='edit';
-  const cond = F.condition||7;
+  // A figure can genuinely have no condition set yet (0/unset — e.g. a
+  // fresh CSV import) as distinct from a brand-new "Add figure" form, which
+  // should still default to a sensible starting point of 7.
+  const cond = (F.condition===undefined || F.condition===null) ? 7 : F.condition;
   const fc = (F.faction||'GI Joe')==='GI Joe';
   return `
   <div class="backdrop" id="backdrop">
@@ -990,9 +1016,9 @@ function buildModal() {
                 const n=i+1, on=n<=cond;
                 return `<button class="pip-edit" data-cond="${n}" style="${on?`background:${fc?'var(--joe)':'var(--cobra)'}`:''}"></button>`;
               }).join('')}
-              <div class="pip-value">${cond}</div>
+              <div class="pip-value">${cond||'—'}</div>
             </div>
-            <div class="pip-description">${COND[cond]||''}</div>
+            <div class="pip-description">${cond ? (COND[cond]||'') : 'Not rated yet — click a pip to set a condition'}</div>
           </div>
         </div>
         <div>
@@ -1195,7 +1221,10 @@ function readForm() {
     year:             parseInt(q('f-year')?.value)||null,
     subgroup:         q('f-subgroup')?.value.trim()||'',
     vehicle:          q('f-vehicle')?.value.trim()||'',
-    condition:        F.condition||7,
+    // Preserve an explicit "not rated" (0) instead of the old `F.condition||7`,
+    // which would silently turn an unrated figure into a fake "Fine" (7) the
+    // moment any other field on it was saved.
+    condition:        (F.condition===undefined || F.condition===null) ? 7 : F.condition,
     accessories:      (q('f-acc-input')?.value||'').split(',').map(s=>s.trim()).filter(Boolean),
     accessoriesOwned: F.accessoriesOwned||[],
     // No longer editable in the form — carry through whatever was already on
@@ -1418,7 +1447,11 @@ async function importCsvText(text) {
         if (i>-1) collection[i] = saved;
         updated++;
       } else {
-        const saved = await dbInsertFields({ ...payload, condition: 7, images: [] });
+        // 0 marks "not rated" — a bulk CSV insert never represents a real
+        // per-figure assessment, so it shouldn't masquerade as one. Only the
+        // app's Add/Edit modal (a real, individual save) sets a proper
+        // starting condition.
+        const saved = await dbInsertFields({ ...payload, condition: 0, images: [] });
         collection.push(saved);
         inserted++;
       }
